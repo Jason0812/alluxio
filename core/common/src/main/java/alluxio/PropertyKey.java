@@ -446,7 +446,7 @@ public class PropertyKey {
       create(Name.USER_BLOCK_REMOTE_WRITER_CLASS, "alluxio.client.netty.NettyRemoteBlockWriter");
   public static final PropertyKey USER_BLOCK_SIZE_BYTES_DEFAULT =
       create(Name.USER_BLOCK_SIZE_BYTES_DEFAULT, "512MB");
-  public static final PropertyKey USER_MUSTCACHELIST = create(Name.USER_MUSTCACHELIST, null);
+  public static final PropertyKey USER_MUSTCACHELIST = create(Name.USER_MUSTCACHELIST, "");
   public static final PropertyKey USER_BLOCK_WORKER_CLIENT_THREADS =
       create(Name.USER_BLOCK_WORKER_CLIENT_THREADS, 10);
   public static final PropertyKey USER_BLOCK_WORKER_CLIENT_POOL_SIZE_MAX =
