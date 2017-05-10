@@ -49,8 +49,6 @@ public class PropertyKey {
       create(Name.METRICS_CONF_FILE, String.format("${%s}/metrics.properties", Name.CONF_DIR));
   public static final PropertyKey NETWORK_HOST_RESOLUTION_TIMEOUT_MS =
       create(Name.NETWORK_HOST_RESOLUTION_TIMEOUT_MS, 5000);
-  public static final PropertyKey NETWORK_NETTY_HEARTBEAT_TIMEOUT_MS =
-      create(Name.NETWORK_NETTY_HEARTBEAT_TIMEOUT_MS, 30000);
   public static final PropertyKey NETWORK_THRIFT_FRAME_SIZE_BYTES_MAX =
       create(Name.NETWORK_THRIFT_FRAME_SIZE_BYTES_MAX, "16MB");
   public static final PropertyKey SITE_CONF_DIR =
@@ -99,8 +97,6 @@ public class PropertyKey {
   public static final PropertyKey UNDERFS_HDFS_PREFIXES =
       create(Name.UNDERFS_HDFS_PREFIXES, "hdfs://,glusterfs:///,maprfs:///");
   public static final PropertyKey UNDERFS_HDFS_REMOTE = create(Name.UNDERFS_HDFS_REMOTE, false);
-  public static final PropertyKey UNDERFS_OBJECT_STORE_SERVICE_THREADS =
-      create(Name.UNDERFS_OBJECT_STORE_SERVICE_THREADS, 20);
   public static final PropertyKey UNDERFS_OBJECT_STORE_MOUNT_SHARED_PUBLICLY =
       create(Name.UNDERFS_OBJECT_STORE_MOUNT_SHARED_PUBLICLY, false);
   public static final PropertyKey UNDERFS_OSS_CONNECT_MAX =
@@ -259,6 +255,7 @@ public class PropertyKey {
   public static final PropertyKey MASTER_WEB_HOSTNAME = create(Name.MASTER_WEB_HOSTNAME, null);
   public static final PropertyKey MASTER_WEB_PORT = create(Name.MASTER_WEB_PORT, 19999);
   public static final PropertyKey MASTER_WHITELIST = create(Name.MASTER_WHITELIST, "/");
+//  public static final PropertyKey MASTER_MUSTCACHELIST = create(Name.MASTER_MUSTCACHELIST, null);
   public static final PropertyKey MASTER_WORKER_THREADS_MAX =
       create(Name.MASTER_WORKER_THREADS_MAX, 2048);
   public static final PropertyKey MASTER_WORKER_THREADS_MIN =
@@ -449,6 +446,7 @@ public class PropertyKey {
       create(Name.USER_BLOCK_REMOTE_WRITER_CLASS, "alluxio.client.netty.NettyRemoteBlockWriter");
   public static final PropertyKey USER_BLOCK_SIZE_BYTES_DEFAULT =
       create(Name.USER_BLOCK_SIZE_BYTES_DEFAULT, "512MB");
+  public static final PropertyKey USER_MUSTCACHELIST = create(Name.USER_MUSTCACHELIST, null);
   public static final PropertyKey USER_BLOCK_WORKER_CLIENT_THREADS =
       create(Name.USER_BLOCK_WORKER_CLIENT_THREADS, 10);
   public static final PropertyKey USER_BLOCK_WORKER_CLIENT_POOL_SIZE_MAX =
@@ -463,8 +461,6 @@ public class PropertyKey {
       create(Name.USER_FILE_BUFFER_BYTES, "1MB");
   public static final PropertyKey USER_FILE_CACHE_PARTIALLY_READ_BLOCK =
       create(Name.USER_FILE_CACHE_PARTIALLY_READ_BLOCK, true);
-  public static final PropertyKey USER_FILE_DELETE_UNCHECKED =
-      create(Name.USER_FILE_DELETE_UNCHECKED, false);
   public static final PropertyKey USER_FILE_MASTER_CLIENT_THREADS =
       create(Name.USER_FILE_MASTER_CLIENT_THREADS, 10);
   public static final PropertyKey USER_FILE_PASSIVE_CACHE_ENABLED =
@@ -675,8 +671,6 @@ public class PropertyKey {
     public static final String METRICS_CONF_FILE = "alluxio.metrics.conf.file";
     public static final String NETWORK_HOST_RESOLUTION_TIMEOUT_MS =
         "alluxio.network.host.resolution.timeout.ms";
-    public static final String NETWORK_NETTY_HEARTBEAT_TIMEOUT_MS =
-        "alluxio.network.netty.heartbeat.timeout.ms";
     public static final String NETWORK_THRIFT_FRAME_SIZE_BYTES_MAX =
         "alluxio.network.thrift.frame.size.bytes.max";
     public static final String SITE_CONF_DIR = "alluxio.site.conf.dir";
@@ -710,8 +704,6 @@ public class PropertyKey {
     public static final String UNDERFS_HDFS_IMPL = "alluxio.underfs.hdfs.impl";
     public static final String UNDERFS_HDFS_PREFIXES = "alluxio.underfs.hdfs.prefixes";
     public static final String UNDERFS_HDFS_REMOTE = "alluxio.underfs.hdfs.remote";
-    public static final String UNDERFS_OBJECT_STORE_SERVICE_THREADS =
-        "alluxio.underfs.object.store.service.threads";
     public static final String UNDERFS_OBJECT_STORE_MOUNT_SHARED_PUBLICLY =
         "alluxio.underfs.object.store.mount.shared.publicly";
     public static final String UNDERFS_OSS_CONNECT_MAX = "alluxio.underfs.oss.connection.max";
@@ -826,6 +818,7 @@ public class PropertyKey {
     public static final String MASTER_WEB_HOSTNAME = "alluxio.master.web.hostname";
     public static final String MASTER_WEB_PORT = "alluxio.master.web.port";
     public static final String MASTER_WHITELIST = "alluxio.master.whitelist";
+//    public static final String MASTER_MUSTCACHELIST = "alluxio.master.mustCacheList";
     public static final String MASTER_WORKER_THREADS_MAX = "alluxio.master.worker.threads.max";
     public static final String MASTER_WORKER_THREADS_MIN = "alluxio.master.worker.threads.min";
     public static final String MASTER_WORKER_TIMEOUT_MS = "alluxio.master.worker.timeout.ms";
@@ -949,6 +942,7 @@ public class PropertyKey {
         "alluxio.user.block.remote.writer.class";
     public static final String USER_BLOCK_SIZE_BYTES_DEFAULT =
         "alluxio.user.block.size.bytes.default";
+    public static final String USER_MUSTCACHELIST = "alluxio.user.mustCacheList";
     public static final String USER_BLOCK_WORKER_CLIENT_THREADS =
         "alluxio.user.block.worker.client.threads";
     public static final String USER_BLOCK_WORKER_CLIENT_POOL_SIZE_MAX =
@@ -961,8 +955,6 @@ public class PropertyKey {
     public static final String USER_FILE_BUFFER_BYTES = "alluxio.user.file.buffer.bytes";
     public static final String USER_FILE_CACHE_PARTIALLY_READ_BLOCK =
         "alluxio.user.file.cache.partially.read.block";
-    public static final String USER_FILE_DELETE_UNCHECKED =
-        "alluxio.user.file.delete.unchecked";
     public static final String USER_FILE_MASTER_CLIENT_THREADS =
         "alluxio.user.file.master.client.threads";
     public static final String USER_FILE_PASSIVE_CACHE_ENABLED =

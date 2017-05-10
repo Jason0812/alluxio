@@ -13,42 +13,16 @@ package alluxio.client.file;
 
 import alluxio.AlluxioURI;
 import alluxio.annotation.PublicApi;
-import alluxio.client.file.options.CreateDirectoryOptions;
-import alluxio.client.file.options.CreateFileOptions;
-import alluxio.client.file.options.DeleteOptions;
-import alluxio.client.file.options.ExistsOptions;
-import alluxio.client.file.options.FreeOptions;
-import alluxio.client.file.options.GetStatusOptions;
-import alluxio.client.file.options.InStreamOptions;
-import alluxio.client.file.options.ListStatusOptions;
-import alluxio.client.file.options.LoadMetadataOptions;
-import alluxio.client.file.options.MountOptions;
-import alluxio.client.file.options.OpenFileOptions;
-import alluxio.client.file.options.OutStreamOptions;
-import alluxio.client.file.options.RenameOptions;
-import alluxio.client.file.options.SetAttributeOptions;
-import alluxio.client.file.options.UnmountOptions;
-import alluxio.exception.AlluxioException;
-import alluxio.exception.DirectoryNotEmptyException;
-import alluxio.exception.ExceptionMessage;
-import alluxio.exception.FileAlreadyExistsException;
-import alluxio.exception.FileDoesNotExistException;
-import alluxio.exception.InvalidPathException;
-import alluxio.exception.status.AlluxioStatusException;
-import alluxio.exception.status.AlreadyExistsException;
-import alluxio.exception.status.FailedPreconditionException;
-import alluxio.exception.status.InvalidArgumentException;
-import alluxio.exception.status.NotFoundException;
-import alluxio.exception.status.UnavailableException;
-
+import alluxio.client.file.options.*;
+import alluxio.exception.*;
+import alluxio.exception.status.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 /**
 * Default implementation of the {@link FileSystem} interface. Developers can extend this class
