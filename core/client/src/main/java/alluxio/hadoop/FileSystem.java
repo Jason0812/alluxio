@@ -24,7 +24,7 @@ import javax.annotation.concurrent.NotThreadSafe;
  */
 @PublicApi
 @NotThreadSafe
-public final class FileSystem extends AbstractFileSystem {
+public final class FileSystem extends AbstractFileSystemThrough {
   /**
    * Constructs a new {@link FileSystem}.
    */
@@ -41,6 +41,7 @@ public final class FileSystem extends AbstractFileSystem {
   public FileSystem(alluxio.client.file.FileSystem fileSystem) {
     super(fileSystem);
   }
+
 
   @Override
   public String getScheme() {
