@@ -17,35 +17,15 @@ import alluxio.RpcUtils;
 import alluxio.RpcUtils.RpcCallable;
 import alluxio.RpcUtils.RpcCallableThrowsIOException;
 import alluxio.exception.AlluxioException;
-import alluxio.master.file.options.CheckConsistencyOptions;
-import alluxio.master.file.options.CompleteFileOptions;
-import alluxio.master.file.options.CreateDirectoryOptions;
-import alluxio.master.file.options.CreateFileOptions;
-import alluxio.master.file.options.ListStatusOptions;
-import alluxio.master.file.options.LoadMetadataOptions;
-import alluxio.master.file.options.MountOptions;
-import alluxio.master.file.options.SetAttributeOptions;
-import alluxio.thrift.AlluxioTException;
-import alluxio.thrift.CheckConsistencyTOptions;
-import alluxio.thrift.CompleteFileTOptions;
-import alluxio.thrift.CreateDirectoryTOptions;
-import alluxio.thrift.CreateFileTOptions;
-import alluxio.thrift.FileBlockInfo;
-import alluxio.thrift.FileInfo;
-import alluxio.thrift.FileSystemMasterClientService;
-import alluxio.thrift.ListStatusTOptions;
-import alluxio.thrift.MountTOptions;
-import alluxio.thrift.SetAttributeTOptions;
-import alluxio.thrift.ThriftIOException;
+import alluxio.master.file.options.*;
+import alluxio.thrift.*;
 import alluxio.wire.ThriftUtils;
-
 import com.google.common.base.Preconditions;
 
+import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 /**
  * This class is a Thrift handler for file system master RPCs invoked by an Alluxio client.
@@ -311,6 +291,16 @@ public final class FileSystemMasterClientServiceHandler implements
       public Void call() throws AlluxioException, IOException {
         mFileSystemMaster.unmount(new AlluxioURI(alluxioPath));
         return null;
+      }
+    });
+  }
+
+  @Override
+  public MountPairInfo getUfsPathWithMountTable(final String path) throws AlluxioTException {
+    return RpcUtils.call(new RpcCallable<MountPairInfo>() {
+      @Override
+      public MountPairInfo call() throws AlluxioException {
+        return ThriftUtils.toThrift(mFileSystemMaster.getUfsPathWithMountTable(new AlluxioURI(path)));
       }
     });
   }

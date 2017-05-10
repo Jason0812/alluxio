@@ -18,17 +18,7 @@ import alluxio.PropertyKey;
 import alluxio.clock.SystemClock;
 import alluxio.collections.Pair;
 import alluxio.collections.PrefixList;
-import alluxio.exception.AccessControlException;
-import alluxio.exception.AlluxioException;
-import alluxio.exception.BlockInfoException;
-import alluxio.exception.DirectoryNotEmptyException;
-import alluxio.exception.ExceptionMessage;
-import alluxio.exception.FileAlreadyCompletedException;
-import alluxio.exception.FileAlreadyExistsException;
-import alluxio.exception.FileDoesNotExistException;
-import alluxio.exception.InvalidFileSizeException;
-import alluxio.exception.InvalidPathException;
-import alluxio.exception.PreconditionMessage;
+import alluxio.exception.*;
 import alluxio.heartbeat.HeartbeatContext;
 import alluxio.heartbeat.HeartbeatExecutor;
 import alluxio.heartbeat.HeartbeatThread;
@@ -37,57 +27,18 @@ import alluxio.master.ProtobufUtils;
 import alluxio.master.block.BlockId;
 import alluxio.master.block.BlockMaster;
 import alluxio.master.file.async.AsyncPersistHandler;
-import alluxio.master.file.meta.FileSystemMasterView;
-import alluxio.master.file.meta.Inode;
-import alluxio.master.file.meta.InodeDirectory;
-import alluxio.master.file.meta.InodeDirectoryIdGenerator;
-import alluxio.master.file.meta.InodeFile;
-import alluxio.master.file.meta.InodeLockList;
-import alluxio.master.file.meta.InodePathPair;
-import alluxio.master.file.meta.InodeTree;
-import alluxio.master.file.meta.LockedInodePath;
-import alluxio.master.file.meta.MountTable;
-import alluxio.master.file.meta.PersistenceState;
-import alluxio.master.file.meta.TempInodePathForChild;
-import alluxio.master.file.meta.TempInodePathForDescendant;
-import alluxio.master.file.meta.TtlBucket;
-import alluxio.master.file.meta.TtlBucketList;
+import alluxio.master.file.meta.*;
 import alluxio.master.file.meta.options.MountInfo;
-import alluxio.master.file.options.CheckConsistencyOptions;
-import alluxio.master.file.options.CompleteFileOptions;
-import alluxio.master.file.options.CreateDirectoryOptions;
-import alluxio.master.file.options.CreateFileOptions;
-import alluxio.master.file.options.CreatePathOptions;
-import alluxio.master.file.options.ListStatusOptions;
-import alluxio.master.file.options.LoadMetadataOptions;
-import alluxio.master.file.options.MountOptions;
-import alluxio.master.file.options.SetAttributeOptions;
+import alluxio.master.file.options.*;
 import alluxio.master.journal.AsyncJournalWriter;
 import alluxio.master.journal.JournalFactory;
 import alluxio.master.journal.JournalOutputStream;
 import alluxio.metrics.MetricsSystem;
-import alluxio.proto.journal.File.AddMountPointEntry;
-import alluxio.proto.journal.File.AsyncPersistRequestEntry;
-import alluxio.proto.journal.File.CompleteFileEntry;
-import alluxio.proto.journal.File.DeleteFileEntry;
-import alluxio.proto.journal.File.DeleteMountPointEntry;
-import alluxio.proto.journal.File.InodeFileEntry;
-import alluxio.proto.journal.File.InodeLastModificationTimeEntry;
-import alluxio.proto.journal.File.PersistDirectoryEntry;
-import alluxio.proto.journal.File.ReinitializeFileEntry;
-import alluxio.proto.journal.File.RenameEntry;
-import alluxio.proto.journal.File.SetAttributeEntry;
-import alluxio.proto.journal.File.StringPairEntry;
+import alluxio.proto.journal.File.*;
 import alluxio.proto.journal.Journal.JournalEntry;
 import alluxio.security.authorization.Mode;
 import alluxio.security.authorization.Permission;
-import alluxio.thrift.CommandType;
-import alluxio.thrift.FileSystemCommand;
-import alluxio.thrift.FileSystemCommandOptions;
-import alluxio.thrift.FileSystemMasterClientService;
-import alluxio.thrift.FileSystemMasterWorkerService;
-import alluxio.thrift.PersistCommandOptions;
-import alluxio.thrift.PersistFile;
+import alluxio.thrift.*;
 import alluxio.underfs.UnderFileStatus;
 import alluxio.underfs.UnderFileSystem;
 import alluxio.underfs.options.DeleteOptions;
@@ -102,10 +53,9 @@ import alluxio.wire.BlockInfo;
 import alluxio.wire.BlockLocation;
 import alluxio.wire.FileBlockInfo;
 import alluxio.wire.FileInfo;
-import alluxio.wire.LoadMetadataType;
-import alluxio.wire.TtlAction;
+import alluxio.wire.*;
+import alluxio.wire.MountPairInfo;
 import alluxio.wire.WorkerInfo;
-
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import com.google.common.base.Preconditions;
@@ -116,22 +66,10 @@ import org.apache.thrift.TProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Stack;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-
 import javax.annotation.concurrent.NotThreadSafe;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.*;
 
 /**
  * The master that handles all file system metadata management.
@@ -2613,6 +2551,25 @@ public final class FileSystemMaster extends AbstractMaster {
       waitForJournalFlush(flushCounter);
     }
   }
+  /**
+   * Returns the {@link MountPairInfo} for a given path
+   * This operation requires users to have {@link Mode.Bits#READ} permission on the path.
+   * @param path the path to get {@link MountPairInfo} for
+   * @return the {@link MountPairInfo} for the given path
+   * @throws InvalidPathException if the file path is not valid
+   * @throws AccessControlException if the permission checking fails
+   */
+  public MountPairInfo getUfsPathWithMountTable(AlluxioURI path)
+      throws InvalidPathException,AccessControlException {
+    MountPairInfo mountPairInfo = new MountPairInfo();
+    try (LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.READ)){
+      mPermissionChecker.checkParentPermission(Mode.Bits.READ, inodePath);
+      mountPairInfo.setAlluxioPath(path.getPath());
+      mountPairInfo.setUfsPath(mMountTable.getMountPoint(path));
+    }
+    return mountPairInfo;
+  }
+
 
   /**
    * Unmounts a UFS path previously mounted onto an Alluxio path.

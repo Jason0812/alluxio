@@ -234,6 +234,24 @@ public final class ThriftUtils {
   }
 
   /**
+   * Converts a wire type to a thrift type.
+   *
+   * @param mountPairInfo the wire representation of a MountPairInfo information
+   * @return thrift representation of the mountPairInfo information
+   */
+  public static alluxio.thrift.MountPairInfo toThrift(MountPairInfo mountPairInfo) {
+    return mountPairInfo.toThrift();
+  }
+  /**
+   * Converts a thrift type to a wire type
+   * @param mountPairInfo the thrift representation of a file information
+   * @return wire representation of the file information
+   */
+  public static MountPairInfo fromThrift(alluxio.thrift.MountPairInfo mountPairInfo){
+    return new MountPairInfo(mountPairInfo);
+  }
+
+  /**
    * Converts wire type to thrift type.
    *
    * @param ttlAction {@link TtlAction}

@@ -10,6 +10,11 @@ struct CompleteFileTOptions {
   1: optional i64 ufsLength
 }
 
+struct MountPairInfo{
+  1: string alluxioPath
+  2: string ufsPath
+}
+
 struct CreateDirectoryTOptions {
   1: optional bool persisted
   2: optional bool recursive
@@ -281,6 +286,13 @@ service FileSystemMasterClientService extends common.AlluxioService {
     /** the path of the alluxio mount point */ 1: string alluxioPath,
     )
     throws (1: exception.AlluxioTException e, 2: exception.ThriftIOException ioe)
+
+  /**
+  * Returns the mount pair info of diectory
+  */
+  MountPairInfo getUfsPathWithMountTable(
+    /** the path of the directory*/ 1: string path
+    )throws(1: exception.AlluxioTException e)
 }
 
 /**

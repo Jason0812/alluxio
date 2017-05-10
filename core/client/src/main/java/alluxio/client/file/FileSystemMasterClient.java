@@ -14,31 +14,21 @@ package alluxio.client.file;
 import alluxio.AbstractMasterClient;
 import alluxio.AlluxioURI;
 import alluxio.Constants;
-import alluxio.client.file.options.CheckConsistencyOptions;
-import alluxio.client.file.options.CompleteFileOptions;
-import alluxio.client.file.options.CreateDirectoryOptions;
-import alluxio.client.file.options.CreateFileOptions;
-import alluxio.client.file.options.DeleteOptions;
-import alluxio.client.file.options.FreeOptions;
-import alluxio.client.file.options.ListStatusOptions;
-import alluxio.client.file.options.LoadMetadataOptions;
-import alluxio.client.file.options.MountOptions;
-import alluxio.client.file.options.SetAttributeOptions;
+import alluxio.client.file.options.*;
 import alluxio.exception.AlluxioException;
 import alluxio.thrift.AlluxioService;
 import alluxio.thrift.AlluxioTException;
 import alluxio.thrift.FileSystemMasterClientService;
+import alluxio.wire.MountPairInfo;
 import alluxio.wire.ThriftUtils;
-
 import org.apache.thrift.TException;
 
+import javax.annotation.concurrent.ThreadSafe;
+import javax.security.auth.Subject;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.security.auth.Subject;
 
 /**
  * A wrapper for the thrift client to interact with the file system master, used by alluxio clients.
@@ -378,4 +368,21 @@ public final class FileSystemMasterClient extends AbstractMasterClient {
       }
     });
   }
+
+  /**
+   *@param path the file path
+   *@return the mount pair info for the given path
+   *@throws IOException if an I/O error occurs
+   * @throws AlluxioException, if an Alluxio error occurs
+   */
+  public synchronized MountPairInfo getUfsPathWithMountTable(final AlluxioURI path)
+      throws IOException, AlluxioException {
+    return retryRPC(new RpcCallableThrowsAlluxioTException<MountPairInfo>() {
+      @Override
+      public MountPairInfo call() throws AlluxioTException, TException {
+        return ThriftUtils.fromThrift(mClient.getUfsPathWithMountTable(path.getPath()));
+      }
+    });
+  }
+
 }

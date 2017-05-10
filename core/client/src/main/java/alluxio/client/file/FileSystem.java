@@ -15,26 +15,11 @@ import alluxio.AlluxioURI;
 import alluxio.Configuration;
 import alluxio.PropertyKey;
 import alluxio.annotation.PublicApi;
-import alluxio.client.file.options.CreateDirectoryOptions;
-import alluxio.client.file.options.CreateFileOptions;
-import alluxio.client.file.options.DeleteOptions;
-import alluxio.client.file.options.ExistsOptions;
-import alluxio.client.file.options.FreeOptions;
-import alluxio.client.file.options.GetStatusOptions;
-import alluxio.client.file.options.ListStatusOptions;
-import alluxio.client.file.options.LoadMetadataOptions;
-import alluxio.client.file.options.MountOptions;
-import alluxio.client.file.options.OpenFileOptions;
-import alluxio.client.file.options.RenameOptions;
-import alluxio.client.file.options.SetAttributeOptions;
-import alluxio.client.file.options.UnmountOptions;
+import alluxio.client.file.options.*;
 import alluxio.client.lineage.LineageContext;
 import alluxio.client.lineage.LineageFileSystem;
-import alluxio.exception.AlluxioException;
-import alluxio.exception.DirectoryNotEmptyException;
-import alluxio.exception.FileAlreadyExistsException;
-import alluxio.exception.FileDoesNotExistException;
-import alluxio.exception.InvalidPathException;
+import alluxio.exception.*;
+import alluxio.wire.MountPairInfo;
 
 import java.io.IOException;
 import java.util.List;
@@ -398,4 +383,15 @@ public interface FileSystem {
    * @throws AlluxioException if an Alluxio exception occurs
    */
   void unmount(AlluxioURI path, UnmountOptions options) throws IOException, AlluxioException;
+
+  /**
+   * Convenience method for{@link #getUfsPathWithMountTable(AlluxioURI)}
+   * @param path the path to obtain information about
+   * @return the {@link MountPairInfo} of the file
+   * @throws IOException if a non-alluxio exception occurs
+   * @throws AlluxioException if an unexpected Alluxio exception its thrown
+   */
+//todo: getMountPairInfo with Options;
+  MountPairInfo getUfsPathWithMountTable(AlluxioURI path) throws IOException,AlluxioException;
+
 }
