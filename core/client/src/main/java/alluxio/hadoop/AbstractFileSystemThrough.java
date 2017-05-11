@@ -12,7 +12,9 @@ import alluxio.exception.ConnectionFailedException;
 import alluxio.exception.ExceptionMessage;
 import alluxio.exception.PreconditionMessage;
 import alluxio.security.User;
+import alluxio.underfs.UnderFileStatus;
 import alluxio.underfs.UnderFileSystem;
+import alluxio.underfs.hdfs.HdfsUnderFileSystem;
 import alluxio.wire.MountPairInfo;
 import com.google.common.base.Preconditions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -69,19 +71,8 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesWritten(1);
         }
-        try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            if(ufs.exists(ufsPath)){
-                throw new IOException(ExceptionMessage.FILE_ALREADY_EXISTS.getMessage(ufsPath));
-            }
-            //todo:
-            return new FSDataOutputStream(ufs.create(ufsPath), mStatistics);
-        } catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+        return hdfsUfsInfo.getHdfsUfs().append(hdfsUfsInfo.getHdfsPath(),bufferSize,progress);
     }
 
     @Override
@@ -100,22 +91,9 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if (mStatistics != null){
             mStatistics.incrementBytesWritten(1);
         }
-        try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            if(ufs.exists(ufsPath)){
-                if(!overwrite){
-                    throw new IOException(ExceptionMessage.FILE_ALREADY_EXISTS.getMessage(ufsPath));
-                }
-                //todo: verify is file or path
-                ufs.deleteFile(ufsPath);
-            }
-            return new FSDataOutputStream(ufs.create(ufsPath),mStatistics);
-        }catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+        //todo: verify is file or path, create file with option
+        return new FSDataOutputStream(hdfsUfsInfo.getHdfsUfs().create(hdfsUfsInfo.getHdfsPath()),mStatistics);
     }
 
     @Deprecated
@@ -138,17 +116,11 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
-        try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            //todo: check file exists??? no
-            return ((ufs.isFile(ufsPath) && ufs.deleteFile(ufsPath))
-                    || (ufs.isDirectory(ufsPath) && ufs.deleteDirectory(ufsPath)));
-        } catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+        HdfsUnderFileSystem hdfs = hdfsUfsInfo.getHdfsUfs();
+        String hdfsPath = hdfsUfsInfo.getHdfsPath();
+        return ((hdfs.isFile(hdfsPath) && hdfs.deleteFile(hdfsPath))
+                || (hdfs.isDirectory(hdfsPath) && hdfs.deleteDirectory(hdfsPath)));
     }
 
     @Deprecated
@@ -162,16 +134,8 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if (mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
-        try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(file.getPath())))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            //todo: open the ufs getFileBlockLocations directly
-            return null;
-        } catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(file.getPath());
+        return hdfsUfsInfo.getHdfsUfs().getFileBlockLocations(hdfsUfsInfo.getHdfsPath(),start, len);
     }
 
     @Override
@@ -180,24 +144,8 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
-        try {
-            MountPairInfo MountPairInfo = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)));
-            String alluxiMountPoint = MountPairInfo.getAlluxioPath();
-            String ufsMountPoint = MountPairInfo.getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsMountPoint);
-            LOG.info("Get File Status: {} {}", ufsMountPoint,ufs);
-            String ufsPath = (ufs.resolveUri(new AlluxioURI(ufsMountPoint),
-                HadoopUtils.getPathWithoutScheme(path).substring(alluxiMountPoint.length()))).toString();
-            //todo: use current open method to construct getFileStatus
-            //todo: need to optimization
-            FsPermission permission = new FsPermission((short)ufs.getMode(ufsPath));
-            return new FileStatus(ufs.getFileSize(ufsPath),ufs.isDirectory(ufsPath),
-                BLOCK_REPLICATION_CONSTANT,ufs.getBlockSizeByte(ufsPath),ufs.getModificationTimeMs(ufsPath),
-                0,permission,ufs.getOwner(ufsPath),ufs.getGroup(ufsPath),null,new Path(ufsPath));
-        } catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+        return hdfsUfsInfo.getHdfsUfs().getFileStatus(hdfsUfsInfo.getHdfsPath());
     }
 
     @Override
@@ -206,15 +154,8 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
-        try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            ufs.setOwner(ufsPath, username, groupname);
-        } catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+        hdfsUfsInfo.getHdfsUfs().setOwner(hdfsUfsInfo.getHdfsPath(),username, groupname);
     }
 
     @Override
@@ -223,15 +164,8 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
-        try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            ufs.setMode(ufsPath, permission.toShort());
-        } catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+        hdfsUfsInfo.getHdfsUfs().setMode(hdfsUfsInfo.getHdfsPath(), permission.toShort());
     }
 
     public abstract String getScheme();
@@ -364,17 +298,8 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
-        try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            //todo: open listStatus directly
-            // return ufs.listStatus(ufsPath);
-            return null;
-        } catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+        return hdfsUfsInfo.getHdfsUfs().listStatus(hdfsUfsInfo.getHdfsPath(), "through to HDFS");
     }
 
     @Override
@@ -383,18 +308,8 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesWritten(1);
         }
-        try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
-                    .getUfsPath();
-            LOG.info("mkdirs ufs path: ", ufsPath);
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            LOG.info("mkdirs under file System: ", ufs);
-            //todo: mdkirs with different options
-            return ufs.mkdirs(ufsPath);
-        } catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+        return hdfsUfsInfo.getHdfsUfs().mkdirs(hdfsUfsInfo.getHdfsPath());
     }
 
     @Override
@@ -403,16 +318,8 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
-        try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            //todo: open with options
-            return new FSDataInputStream(ufs.open(ufsPath));
-        } catch (AlluxioException e) {
-            throw new IOException(e);
-        }
+        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+        return new FSDataInputStream(hdfsUfsInfo.getHdfsUfs().open(hdfsUfsInfo.getHdfsPath()));
     }
 
     @Override
@@ -421,20 +328,16 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
-        try {
-            String ufsPathSrc = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(src)))
-                    .getUfsPath();
-            String ufsPathDst = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(dst)))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPathSrc);
-            return ((ufs.isFile(ufsPathSrc) && ufs.isFile(ufsPathDst) && ufs.renameFile(ufsPathSrc, ufsPathDst))
-                    || (ufs.isDirectory(ufsPathSrc) && ufs.isDirectory(ufsPathDst) && ufs.renameDirectory(ufsPathSrc,ufsPathDst)));
-        } catch (AlluxioException e) {
-            LOG.error("Failed to rename {} to {}", src, dst);
-            return false;
-        }
+        HdfsUfsInfo hdfsUfsInfoSrc = PathResolve(src);
+        HdfsUfsInfo hdfsUfsInfoDst = PathResolve(dst);
+        HdfsUnderFileSystem hdfsSrc = hdfsUfsInfoSrc.getHdfsUfs();
+        String hdfsSrcPath = hdfsUfsInfoSrc.getHdfsPath();
+        HdfsUnderFileSystem hdfsDst = hdfsUfsInfoDst.getHdfsUfs();
+        String hdfsDstPath =  hdfsUfsInfoDst.getHdfsPath();
+        //NOTE: rename has already check isFile or isDirectory;
+       // return ((hdfsSrc.isFile(hdfsSrcPath) && hdfsDst.isFile(hdfsDstPath) && hdfsSrc.renameFile(hdfsSrcPath,hdfsDstPath))
+       // || (hdfsSrc.isDirectory(hdfsSrcPath) && hdfsDst.isDirectory(hdfsDstPath) && hdfsSrc.renameDirectory(hdfsSrcPath, hdfsDstPath)));
+        return(hdfsSrc.renameFile(hdfsSrcPath,hdfsDstPath) || hdfsSrc.renameDirectory(hdfsSrcPath, hdfsDstPath));
     }
 
     //todo: the usage of this api
@@ -445,6 +348,40 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
             mWorkingDir = path;
         } else {
             mWorkingDir = new Path(mWorkingDir, path);
+        }
+    }
+
+    private HdfsUfsInfo PathResolve(Path path) throws IOException {
+        LOG.info("Path Resolve: {}", path);
+        try {
+            MountPairInfo mMountPairInfo = mFileSystem.getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)));
+            String alluxioMountPoint = mMountPairInfo.getAlluxioPath();
+            String ufsMountPoint = mMountPairInfo.getUfsPath();
+            //todo: construct HDFS filesytem with conf
+            HdfsUnderFileSystem hdfsUfs = new HdfsUnderFileSystem(new AlluxioURI(ufsMountPoint), null);
+            String ufsPath = hdfsUfs.resolveUri(new AlluxioURI(ufsMountPoint),
+                    HadoopUtils.getPathWithoutScheme(path).substring(alluxioMountPoint.length())).toString();
+            return new HdfsUfsInfo(ufsPath, hdfsUfs);
+        } catch (AlluxioException e) {
+            throw new IOException(e);
+        }
+
+
+    }
+
+    public final class HdfsUfsInfo{
+        private final String hdfsPath;
+        private final HdfsUnderFileSystem hdfsUfs;
+        public HdfsUfsInfo(String ufsPath, HdfsUnderFileSystem hdfsFs){
+            hdfsPath = ufsPath;
+            hdfsUfs = hdfsFs;
+        }
+
+        public String getHdfsPath(){
+            return hdfsPath;
+        }
+        public  HdfsUnderFileSystem getHdfsUfs(){
+            return hdfsUfs;
         }
     }
 }
