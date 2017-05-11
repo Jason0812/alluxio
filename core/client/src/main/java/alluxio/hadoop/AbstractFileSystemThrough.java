@@ -13,6 +13,7 @@ import alluxio.exception.ExceptionMessage;
 import alluxio.exception.PreconditionMessage;
 import alluxio.security.User;
 import alluxio.underfs.UnderFileSystem;
+import alluxio.wire.MountPairInfo;
 import com.google.common.base.Preconditions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.hadoop.fs.*;
@@ -64,7 +65,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public FSDataOutputStream append(Path path, int bufferSize, Progressable progress) throws IOException {
-        LOG.debug("append: {} {} {}", path, bufferSize, progress);
+        LOG.info("append: {} {} {}", path, bufferSize, progress);
         if(mStatistics != null){
             mStatistics.incrementBytesWritten(1);
         }
@@ -94,7 +95,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
     @Override
     public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite,
        int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
-        LOG.debug("create: {} {} {} {} {} {} {}", path, permission, overwrite, bufferSize, replication,
+        LOG.info("create: {} {} {} {} {} {} {}", path, permission, overwrite, bufferSize, replication,
            blockSize,progress);
         if (mStatistics != null){
             mStatistics.incrementBytesWritten(1);
@@ -133,7 +134,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public boolean delete(Path path, boolean recursive) throws IOException{
-        LOG.debug("delete: {} {}", path, recursive);
+        LOG.info("delete: {} {}", path, recursive);
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
@@ -157,7 +158,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
     }
 
     public BlockLocation[] getFileBlockLocations(FileStatus file, long start, long len) throws IOException{
-        LOG.debug("Get File Block Location: {} {} {}", file, start, len);
+        LOG.info("Get File Block Location: {} {} {}", file, start, len);
         if (mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
@@ -175,17 +176,25 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public FileStatus getFileStatus(Path path) throws IOException {
-        LOG.debug("Get status: {}", path);
+        LOG.info("Get status: {}", path);
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
         try {
-            String ufsPath = mFileSystem
-                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
-                    .getUfsPath();
-            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
-            //todo: open the ufs getStatus directly
-            return null;
+            MountPairInfo MountPairInfo = mFileSystem
+                    .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)));
+            String alluxiMountPoint = MountPairInfo.getAlluxioPath();
+            String ufsMountPoint = MountPairInfo.getUfsPath();
+            UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsMountPoint);
+            LOG.info("Get File Status: {} {}", ufsMountPoint,ufs);
+            String ufsPath = (ufs.resolveUri(new AlluxioURI(ufsMountPoint),
+                HadoopUtils.getPathWithoutScheme(path).substring(alluxiMountPoint.length()))).toString();
+            //todo: use current open method to construct getFileStatus
+            //todo: need to optimization
+            FsPermission permission = new FsPermission((short)ufs.getMode(ufsPath));
+            return new FileStatus(ufs.getFileSize(ufsPath),ufs.isDirectory(ufsPath),
+                BLOCK_REPLICATION_CONSTANT,ufs.getBlockSizeByte(ufsPath),ufs.getModificationTimeMs(ufsPath),
+                0,permission,ufs.getOwner(ufsPath),ufs.getGroup(ufsPath),null,new Path(ufsPath));
         } catch (AlluxioException e) {
             throw new IOException(e);
         }
@@ -193,7 +202,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public void setOwner(Path path, final String username, final String groupname) throws IOException {
-        LOG.debug("Set owner: {} {} {}",path, username, groupname);
+        LOG.info("Set owner: {} {} {}",path, username, groupname);
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
@@ -210,7 +219,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public void setPermission(Path path, FsPermission permission) throws IOException {
-        LOG.debug("Set permission: {} {}", path, permission);
+        LOG.info("Set permission: {} {}", path, permission);
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
@@ -235,7 +244,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public Path getWorkingDirectory() {
-        LOG.debug("getWorkingDirectory: {}", mWorkingDir);
+        LOG.info("getWorkingDirectory: {}", mWorkingDir);
         return mWorkingDir;
     }
 
@@ -246,7 +255,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         Preconditions.checkNotNull(uri.getPort(), PreconditionMessage.URI_PORT_NULL);
 
         super.initialize(uri, conf);
-        LOG.debug("initialize({}, {}). Connecting to Alluxio", uri, conf);
+        LOG.info("initialize({}, {}). Connecting to Alluxio", uri, conf);
         HadoopUtils.addS3Credentials(conf);
         HadoopUtils.addSwiftCredentials(conf);
         setConf(conf);
@@ -351,7 +360,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public FileStatus[] listStatus(Path path) throws IOException{
-        LOG.debug("File Status: {}", path);
+        LOG.info("File Status: {}", path);
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
@@ -370,7 +379,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public boolean mkdirs(Path path, FsPermission permission) throws IOException {
-        LOG.debug("mkdirs: {} {}", path, permission);
+        LOG.info("mkdirs: {} {}", path, permission);
         if(mStatistics != null){
             mStatistics.incrementBytesWritten(1);
         }
@@ -378,7 +387,9 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
             String ufsPath = mFileSystem
                     .getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)))
                     .getUfsPath();
+            LOG.info("mkdirs ufs path: ", ufsPath);
             UnderFileSystem ufs = UnderFileSystem.Factory.get(ufsPath);
+            LOG.info("mkdirs under file System: ", ufs);
             //todo: mdkirs with different options
             return ufs.mkdirs(ufsPath);
         } catch (AlluxioException e) {
@@ -388,7 +399,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public FSDataInputStream open(Path path, int bufferSize) throws IOException {
-        LOG.debug("open: {} {}", path, bufferSize);
+        LOG.info("open: {} {}", path, bufferSize);
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
@@ -406,7 +417,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public boolean rename(Path src, Path dst) throws IOException {
-        LOG.debug("rename: {} {}", src, dst);
+        LOG.info("rename: {} {}", src, dst);
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
@@ -429,7 +440,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
     //todo: the usage of this api
     @Override
     public void setWorkingDirectory(Path path) {
-        LOG.debug("setWorkingDirectory({})", path);
+        LOG.info("setWorkingDirectory({})", path);
         if (path.isAbsolute()) {
             mWorkingDir = path;
         } else {

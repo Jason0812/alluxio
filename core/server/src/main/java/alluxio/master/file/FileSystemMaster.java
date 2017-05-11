@@ -2564,8 +2564,12 @@ public final class FileSystemMaster extends AbstractMaster {
     MountPairInfo mountPairInfo = new MountPairInfo();
     try (LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.READ)){
       mPermissionChecker.checkParentPermission(Mode.Bits.READ, inodePath);
-      mountPairInfo.setAlluxioPath(path.getPath());
-      mountPairInfo.setUfsPath(mMountTable.getMountPoint(path));
+      String mMountPoint = mMountTable.getMountPoint(path);
+      MountInfo info = mMountTable.getMountTable().get(mMountPoint);
+      AlluxioURI ufsUri = info.getUfsUri();
+      mountPairInfo.setAlluxioPath(mMountPoint);
+      LOG.info("ufs path: {}", ufsUri.toString());
+      mountPairInfo.setUfsPath(ufsUri.toString());
     }
     return mountPairInfo;
   }
