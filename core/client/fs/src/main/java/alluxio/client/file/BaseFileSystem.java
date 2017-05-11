@@ -12,8 +12,12 @@
 package alluxio.client.file;
 
 import alluxio.AlluxioURI;
+import alluxio.Configuration;
+import alluxio.PropertyKey;
 import alluxio.annotation.PublicApi;
+import alluxio.client.WriteType;
 import alluxio.client.file.options.*;
+import alluxio.collections.PrefixList;
 import alluxio.exception.*;
 import alluxio.exception.status.*;
 import org.slf4j.Logger;
@@ -44,6 +48,8 @@ public class BaseFileSystem implements FileSystem {
     return new BaseFileSystem(context);
   }
 
+  private PrefixList mMustCacheList = new PrefixList(Configuration.
+      getList(PropertyKey.USER_MUSTCACHELIST,","));
   /**
    * Constructs a new base file system.
    *
@@ -63,6 +69,9 @@ public class BaseFileSystem implements FileSystem {
   public void createDirectory(AlluxioURI path, CreateDirectoryOptions options)
       throws FileAlreadyExistsException, InvalidPathException, IOException, AlluxioException {
     FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
+    if (mMustCacheList.inList(path.getPath().toString())){
+      options.setWriteType(WriteType.MUST_CACHE);
+    }
     try {
       masterClient.createDirectory(path, options);
       LOG.debug("Created directory {}, options: {}", path.getPath(), options);
@@ -89,6 +98,9 @@ public class BaseFileSystem implements FileSystem {
   public FileOutStream createFile(AlluxioURI path, CreateFileOptions options)
       throws FileAlreadyExistsException, InvalidPathException, IOException, AlluxioException {
     FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
+    if (mMustCacheList.inList(path.getPath().toString())){
+      options.setWriteType(WriteType.MUST_CACHE);
+    }
     URIStatus status;
     try {
       masterClient.createFile(path, options);
