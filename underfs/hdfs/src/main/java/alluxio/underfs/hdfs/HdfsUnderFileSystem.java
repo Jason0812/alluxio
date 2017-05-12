@@ -28,25 +28,30 @@ import alluxio.underfs.options.DeleteOptions;
 import alluxio.underfs.options.FileLocationOptions;
 import alluxio.underfs.options.MkdirsOptions;
 import alluxio.underfs.options.OpenOptions;
-
 import com.google.common.base.Throwables;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.BlockLocation;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.security.SecurityUtil;
-import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.util.Progressable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import javax.annotation.concurrent.ThreadSafe;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * HDFS {@link UnderFileSystem} implementation.
@@ -484,7 +489,7 @@ public class HdfsUnderFileSystem extends BaseUnderFileSystem
     }
   }
 
-  public FSDataOutputStream append(String path, int bufferSize,  Progressable progress) throws IOException {
+  public FSDataOutputStream append(String path, int bufferSize, Progressable progress) throws IOException {
     IOException te = null;
     RetryPolicy retryPolicy = new CountingRetry(MAX_TRY);
     while(retryPolicy.attemptRetry()){
@@ -504,7 +509,7 @@ public class HdfsUnderFileSystem extends BaseUnderFileSystem
     RetryPolicy retryPolicy = new CountingRetry(MAX_TRY);
     while(retryPolicy.attemptRetry()){
       try{
-        LOG.debug("Get File Status: {}", path);
+        LOG.info("Get File Status: {}", path);
         return mFileSystem.getFileStatus(new Path(path));
       }catch (IOException e){
         LOG.error("Retry count: {} {}", retryPolicy.getRetryCount(), e.getMessage(), e);
@@ -534,8 +539,23 @@ public class HdfsUnderFileSystem extends BaseUnderFileSystem
     RetryPolicy retryPolicy = new CountingRetry(MAX_TRY);
     while(retryPolicy.attemptRetry()){
       try{
-        LOG.debug("list Status: {}, path filter, label {}", path, label);
+        LOG.debug("list Status: {}, label {}", path, label);
         return mFileSystem.listStatus(new Path(path));
+      }catch (IOException e){
+        LOG.error("Retry count: {} {}", retryPolicy.getRetryCount(), e.getMessage(), e);
+        te = e;
+      }
+    }
+    throw te;
+  }
+
+  public boolean mkdirs(String path, FsPermission permission) throws IOException{
+    IOException te = null;
+    RetryPolicy retryPolicy = new CountingRetry(MAX_TRY);
+    while(retryPolicy.attemptRetry()){
+      try{
+        LOG.debug("mkdirs: {}, Permission: {}", path, permission);
+        return mFileSystem.mkdirs(new Path(path),permission);
       }catch (IOException e){
         LOG.error("Retry count: {} {}", retryPolicy.getRetryCount(), e.getMessage(), e);
         te = e;
