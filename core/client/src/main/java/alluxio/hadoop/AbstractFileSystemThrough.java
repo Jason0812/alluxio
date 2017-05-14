@@ -332,13 +332,10 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         }
         HdfsUfsInfo hdfsUfsInfoSrc = PathResolve(src);
         HdfsUfsInfo hdfsUfsInfoDst = PathResolve(dst);
-      org.apache.hadoop.fs.FileSystem hdfsSrc = hdfsUfsInfoSrc.getHdfsUfs();
+        org.apache.hadoop.fs.FileSystem hdfsSrc = hdfsUfsInfoSrc.getHdfsUfs();
         Path hdfsSrcPath = hdfsUfsInfoSrc.getHdfsPath();
-      org.apache.hadoop.fs.FileSystem hdfsDst = hdfsUfsInfoDst.getHdfsUfs();
+        org.apache.hadoop.fs.FileSystem hdfsDst = hdfsUfsInfoDst.getHdfsUfs();
         Path hdfsDstPath =  hdfsUfsInfoDst.getHdfsPath();
-        //NOTE: rename has already check isFile or isDirectory;
-       // return ((hdfsSrc.isFile(hdfsSrcPath) && hdfsDst.isFile(hdfsDstPath) && hdfsSrc.renameFile(hdfsSrcPath,hdfsDstPath))
-       // || (hdfsSrc.isDirectory(hdfsSrcPath) && hdfsDst.isDirectory(hdfsDstPath) && hdfsSrc.renameDirectory(hdfsSrcPath, hdfsDstPath)));
         return(hdfsSrc.rename(hdfsSrcPath,hdfsDstPath));
     }
 
@@ -366,7 +363,9 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
             String ufsMountPoint = mMountPairInfo.getUfsPath();
             //todo: ensure mounit is HDFS mount point;
             //todo: construct HDFS filesytem with conf
-            org.apache.hadoop.fs.FileSystem hdfsUfs = org.apache.hadoop.fs.FileSystem.get(new URI(ufsMountPoint),null);
+            org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
+            conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cach","true"));
+            org.apache.hadoop.fs.FileSystem hdfsUfs = org.apache.hadoop.fs.FileSystem.get(new URI(ufsMountPoint), conf);
             String ufsPath = ufsMountPoint.concat(HadoopUtils.getPathWithoutScheme(path).substring(alluxioMountPoint.length()));
             LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}",ufsMountPoint,alluxioMountPoint, ufsPath);
             return new HdfsUfsInfo(ufsPath, hdfsUfs);

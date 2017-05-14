@@ -3531,9 +3531,45 @@
 [INFO] ------------------------------------------------------------------------
 [INFO] Building Alluxio Core - Server 1.4.1-SNAPSHOT
 [INFO] ------------------------------------------------------------------------
+Downloading: http://nexus.qmino.com/content/repositories/miredot/org/glassfish/javax.el/maven-metadata.xml
+Downloading: https://repository.apache.org/content/repositories/releases/org/glassfish/javax.el/maven-metadata.xml
+Downloading: https://repository.cloudera.com/artifactory/cloudera-repos/org/glassfish/javax.el/maven-metadata.xml
+Downloading: https://repo1.maven.org/maven2/org/glassfish/javax.el/maven-metadata.xml
+Downloading: http://repository.mapr.com/maven/org/glassfish/javax.el/maven-metadata.xml
+Progress (1): 847 B                   Downloaded: https://repo1.maven.org/maven2/org/glassfish/javax.el/maven-metadata.xml (847 B at 608 B/s)
+Downloading: http://repo.spring.io/libs-release/org/glassfish/javax.el/maven-metadata.xml
 Downloading: http://repo.hortonworks.com/content/repositories/releases/org/glassfish/javax.el/maven-metadata.xml
+Downloading: https://oss.sonatype.org/content/repositories/snapshots/org/glassfish/javax.el/maven-metadata.xml
+Progress (1): 878 B                   Downloading: https://oss.sonatype.org/content/groups/jetty/org/glassfish/javax.el/maven-metadata.xml
+Downloaded: http://repo.spring.io/libs-release/org/glassfish/javax.el/maven-metadata.xml (878 B at 847 B/s)
+Downloading: https://maven.java.net/content/repositories/snapshots/org/glassfish/javax.el/maven-metadata.xml
+Progress (1): 373 B                   Downloaded: https://maven.java.net/content/repositories/snapshots/org/glassfish/javax.el/maven-metadata.xml (373 B at 185 B/s)
+Downloading: https://maven.java.net/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b06-SNAPSHOT/maven-metadata.xml
+Downloading: https://oss.sonatype.org/content/groups/jetty/org/glassfish/javax.el/3.0.1-b06-SNAPSHOT/maven-metadata.xml
+Downloading: http://nexus.qmino.com/content/repositories/miredot/org/glassfish/javax.el/3.0.1-b06-SNAPSHOT/maven-metadata.xml
+Downloading: https://oss.sonatype.org/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b06-SNAPSHOT/maven-metadata.xml
+Downloading: http://nexus.qmino.com/content/repositories/miredot/org/glassfish/javax.el/3.0.1-b06-SNAPSHOT/javax.el-3.0.1-b06-SNAPSHOT.pom
+Downloading: https://oss.sonatype.org/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b06-SNAPSHOT/javax.el-3.0.1-b06-SNAPSHOT.pom
+Downloading: https://oss.sonatype.org/content/groups/jetty/org/glassfish/javax.el/3.0.1-b06-SNAPSHOT/javax.el-3.0.1-b06-SNAPSHOT.pom
+Downloading: https://maven.java.net/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b06-SNAPSHOT/javax.el-3.0.1-b06-SNAPSHOT.pom
 [WARNING] The POM for org.glassfish:javax.el:jar:3.0.1-b06-SNAPSHOT is missing, no dependency information available
+Downloading: https://oss.sonatype.org/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b07-SNAPSHOT/maven-metadata.xml
+Downloading: http://nexus.qmino.com/content/repositories/miredot/org/glassfish/javax.el/3.0.1-b07-SNAPSHOT/maven-metadata.xml
+Downloading: https://oss.sonatype.org/content/groups/jetty/org/glassfish/javax.el/3.0.1-b07-SNAPSHOT/maven-metadata.xml
+Downloading: https://maven.java.net/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b07-SNAPSHOT/maven-metadata.xml
+Downloading: http://nexus.qmino.com/content/repositories/miredot/org/glassfish/javax.el/3.0.1-b07-SNAPSHOT/javax.el-3.0.1-b07-SNAPSHOT.pom
+Downloading: https://oss.sonatype.org/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b07-SNAPSHOT/javax.el-3.0.1-b07-SNAPSHOT.pom
+Downloading: https://oss.sonatype.org/content/groups/jetty/org/glassfish/javax.el/3.0.1-b07-SNAPSHOT/javax.el-3.0.1-b07-SNAPSHOT.pom
+Downloading: https://maven.java.net/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b07-SNAPSHOT/javax.el-3.0.1-b07-SNAPSHOT.pom
 [WARNING] The POM for org.glassfish:javax.el:jar:3.0.1-b07-SNAPSHOT is missing, no dependency information available
+Downloading: http://nexus.qmino.com/content/repositories/miredot/org/glassfish/javax.el/3.0.1-b08-SNAPSHOT/maven-metadata.xml
+Downloading: https://oss.sonatype.org/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b08-SNAPSHOT/maven-metadata.xml
+Downloading: https://oss.sonatype.org/content/groups/jetty/org/glassfish/javax.el/3.0.1-b08-SNAPSHOT/maven-metadata.xml
+Downloading: https://maven.java.net/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b08-SNAPSHOT/maven-metadata.xml
+Downloading: http://nexus.qmino.com/content/repositories/miredot/org/glassfish/javax.el/3.0.1-b08-SNAPSHOT/javax.el-3.0.1-b08-SNAPSHOT.pom
+Downloading: https://oss.sonatype.org/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b08-SNAPSHOT/javax.el-3.0.1-b08-SNAPSHOT.pom
+Downloading: https://oss.sonatype.org/content/groups/jetty/org/glassfish/javax.el/3.0.1-b08-SNAPSHOT/javax.el-3.0.1-b08-SNAPSHOT.pom
+Downloading: https://maven.java.net/content/repositories/snapshots/org/glassfish/javax.el/3.0.1-b08-SNAPSHOT/javax.el-3.0.1-b08-SNAPSHOT.pom
 [WARNING] The POM for org.glassfish:javax.el:jar:3.0.1-b08-SNAPSHOT is missing, no dependency information available
 [INFO] 
 [INFO] --- maven-clean-plugin:2.5:clean (default-clean) @ alluxio-core-server ---
@@ -6425,35 +6461,35 @@ Downloading: http://repo.hortonworks.com/content/repositories/releases/org/glass
 [INFO] ------------------------------------------------------------------------
 [INFO] Reactor Summary:
 [INFO] 
-[INFO] Alluxio Parent ..................................... SUCCESS [  3.376 s]
-[INFO] Alluxio Core ....................................... SUCCESS [  0.048 s]
-[INFO] Alluxio Core - Common Utilities .................... SUCCESS [01:00 min]
-[INFO] Alluxio Under File System .......................... SUCCESS [  0.047 s]
-[INFO] Alluxio Under File System - Local FS ............... SUCCESS [  6.432 s]
-[INFO] Alluxio Under File System - HDFS ................... SUCCESS [  7.427 s]
-[INFO] Alluxio Under File System - Gluster FS ............. SUCCESS [  6.675 s]
-[INFO] Alluxio Under File System - Aliyun OSS ............. SUCCESS [  6.408 s]
-[INFO] Alluxio Under File System - Swift .................. SUCCESS [  6.741 s]
-[INFO] Alluxio Under File System - S3 ..................... SUCCESS [  7.368 s]
-[INFO] Alluxio Under File System - S3A .................... SUCCESS [  6.357 s]
-[INFO] Alluxio Under File System - GCS .................... SUCCESS [  6.624 s]
-[INFO] Alluxio Core - Client .............................. SUCCESS [ 29.235 s]
-[INFO] Alluxio Core - Server .............................. SUCCESS [03:03 min]
-[INFO] Alluxio Key Value .................................. SUCCESS [  0.027 s]
-[INFO] Alluxio Key Value - Common Utilities ............... SUCCESS [ 17.577 s]
-[INFO] Alluxio Key Value - Client ......................... SUCCESS [ 10.952 s]
-[INFO] Alluxio Key Value - Server ......................... SUCCESS [  9.067 s]
-[INFO] Alluxio Shell ...................................... SUCCESS [  9.955 s]
-[INFO] Alluxio Examples ................................... SUCCESS [  9.993 s]
-[INFO] Alluxio MiniCluster ................................ SUCCESS [  6.960 s]
-[INFO] Alluxio Tests ...................................... SUCCESS [  1.034 s]
-[INFO] Alluxio Integration ................................ SUCCESS [  0.024 s]
-[INFO] Alluxio Assemblies ................................. SUCCESS [  6.427 s]
-[INFO] Alluxio Integration - FUSE ......................... SUCCESS [ 13.486 s]
+[INFO] Alluxio Parent ..................................... SUCCESS [  4.420 s]
+[INFO] Alluxio Core ....................................... SUCCESS [  0.049 s]
+[INFO] Alluxio Core - Common Utilities .................... SUCCESS [01:11 min]
+[INFO] Alluxio Under File System .......................... SUCCESS [  0.042 s]
+[INFO] Alluxio Under File System - Local FS ............... SUCCESS [  5.755 s]
+[INFO] Alluxio Under File System - HDFS ................... SUCCESS [  8.470 s]
+[INFO] Alluxio Under File System - Gluster FS ............. SUCCESS [  6.674 s]
+[INFO] Alluxio Under File System - Aliyun OSS ............. SUCCESS [  7.607 s]
+[INFO] Alluxio Under File System - Swift .................. SUCCESS [  7.458 s]
+[INFO] Alluxio Under File System - S3 ..................... SUCCESS [  7.630 s]
+[INFO] Alluxio Under File System - S3A .................... SUCCESS [  7.180 s]
+[INFO] Alluxio Under File System - GCS .................... SUCCESS [  7.028 s]
+[INFO] Alluxio Core - Client .............................. SUCCESS [ 29.381 s]
+[INFO] Alluxio Core - Server .............................. SUCCESS [01:04 min]
+[INFO] Alluxio Key Value .................................. SUCCESS [  0.024 s]
+[INFO] Alluxio Key Value - Common Utilities ............... SUCCESS [ 16.064 s]
+[INFO] Alluxio Key Value - Client ......................... SUCCESS [  8.882 s]
+[INFO] Alluxio Key Value - Server ......................... SUCCESS [  7.701 s]
+[INFO] Alluxio Shell ...................................... SUCCESS [ 10.994 s]
+[INFO] Alluxio Examples ................................... SUCCESS [  9.783 s]
+[INFO] Alluxio MiniCluster ................................ SUCCESS [  7.792 s]
+[INFO] Alluxio Tests ...................................... SUCCESS [  1.115 s]
+[INFO] Alluxio Integration ................................ SUCCESS [  0.018 s]
+[INFO] Alluxio Assemblies ................................. SUCCESS [  6.431 s]
+[INFO] Alluxio Integration - FUSE ......................... SUCCESS [ 12.038 s]
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time: 06:56 min
-[INFO] Finished at: 2017-05-11T23:52:18+08:00
-[INFO] Final Memory: 215M/949M
+[INFO] Total time: 05:09 min
+[INFO] Finished at: 2017-05-14T11:43:31+08:00
+[INFO] Final Memory: 237M/925M
 [INFO] ------------------------------------------------------------------------
