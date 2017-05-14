@@ -168,6 +168,7 @@ public final class FileSystemMaster extends AbstractMaster {
   private final PrefixList mWhitelist;
 
   /** The handler for async persistence. */
+  //todo: Jason when separate alluxio and ufs, this is not neeeded???????
   private final AsyncPersistHandler mAsyncPersistHandler;
 
   /**
@@ -265,6 +266,7 @@ public final class FileSystemMaster extends AbstractMaster {
         throw new RuntimeException(e);
       }
     } else if (entry.hasPersistDirectory()) {
+      //todo: Jason, not to remove;
       PersistDirectoryEntry typedEntry = entry.getPersistDirectory();
       try (LockedInodePath inodePath = mInodeTree.lockFullInodePath(typedEntry.getId(),
           InodeTree.LockMode.WRITE)) {
@@ -341,6 +343,7 @@ public final class FileSystemMaster extends AbstractMaster {
       // If it is standby, it should be able to load the inode tree from leader's checkpoint.
       mInodeTree
           .initializeRoot(Permission.defaults().applyDirectoryUMask().setOwnerFromLoginModule());
+      //todo: Jason, how to set this default ufs; local is best;
       String defaultUFS = Configuration.get(PropertyKey.UNDERFS_ADDRESS);
       try {
         mMountTable.add(new AlluxioURI(MountTable.ROOT), new AlluxioURI(defaultUFS),
@@ -385,6 +388,7 @@ public final class FileSystemMaster extends AbstractMaster {
    */
   private List<AlluxioURI> startupCheckConsistency(final ExecutorService service)
       throws InterruptedException, IOException {
+    //todo: Jason, the usage of this feature;
     /** A marker {@link StartupConsistencyChecker}s add to the queue to signal completion */
     final long completionMarker = -1;
     /** A shared queue of directories which have yet to be checked */
@@ -591,9 +595,11 @@ public final class FileSystemMaster extends AbstractMaster {
     try (LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.WRITE)) {
       // This is WRITE locked, since loading metadata is possible.
       mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
+      //todo: Jason, remove it, and just checking alluxio space metadata
       flushCounter = loadMetadataIfNotExistAndJournal(inodePath,
           LoadMetadataOptions.defaults().setCreateAncestors(true));
       mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
+      //todo: jason, when file is not in alluxio Space, should return -1;
       return inodePath.getInode().getId();
     } catch (InvalidPathException | FileDoesNotExistException e) {
       return IdUtils.INVALID_FILE_ID;
@@ -652,6 +658,7 @@ public final class FileSystemMaster extends AbstractMaster {
     try (LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.WRITE)) {
       // This is WRITE locked, since loading metadata is possible.
       mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
+      //todo: jason, remove it;
       flushCounter = loadMetadataIfNotExistAndJournal(inodePath,
           LoadMetadataOptions.defaults().setCreateAncestors(true));
       mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
@@ -681,6 +688,7 @@ public final class FileSystemMaster extends AbstractMaster {
         throw new FileDoesNotExistException(e.getMessage(), e);
       }
     }
+    //todo: jason
     MountTable.Resolution resolution;
     try {
       resolution = mMountTable.resolve(uri);
@@ -747,7 +755,7 @@ public final class FileSystemMaster extends AbstractMaster {
           loadMetadataOptions.setLoadDirectChildren(false);
         }
       }
-
+      //todo:jason, remove it;
       flushCounter = loadMetadataIfNotExistAndJournal(inodePath, loadMetadataOptions);
       mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
       inode = inodePath.getInode();
@@ -835,6 +843,7 @@ public final class FileSystemMaster extends AbstractMaster {
    */
   private boolean checkConsistencyInternal(Inode inode, AlluxioURI path)
       throws FileDoesNotExistException, InvalidPathException, IOException {
+    //todo: jason, needed this feature????????
     MountTable.Resolution resolution = mMountTable.resolve(path);
     UnderFileSystem ufs = resolution.getUfs();
     String ufsPath = resolution.getUri().getPath();
@@ -930,6 +939,7 @@ public final class FileSystemMaster extends AbstractMaster {
 
     // If the file is persisted, its length is determined by UFS. Otherwise, its length is
     // determined by its memory footprint.
+    //todo(jason): the length is determined by its memory footprint;
     long length = fileInode.isPersisted() ? options.getUfsLength() : inMemoryLength;
 
     completeFileInternal(fileInode.getBlockIds(), inodePath, length, opTimeMs);
@@ -960,7 +970,7 @@ public final class FileSystemMaster extends AbstractMaster {
     inode.setBlockIds(blockIds);
     inode.setLastModificationTimeMs(opTimeMs);
     inode.complete(length);
-
+    //todo(jason):
     if (inode.isPersisted()) {
       // Commit all the file blocks (without locations) so the metadata for the block exists.
       long currLength = length;
@@ -1142,6 +1152,7 @@ public final class FileSystemMaster extends AbstractMaster {
   /**
    * @return a copy of the current mount table
    */
+  //todo(jason): client call this method through RPC, and client get this mountable and cache it to accelerate;
   public Map<String, MountInfo> getMountTable() {
     return mMountTable.getMountTable();
   }
@@ -1307,6 +1318,7 @@ public final class FileSystemMaster extends AbstractMaster {
 
         // TODO(jiri): What should the Alluxio behavior be when a UFS delete operation fails?
         // Currently, it will result in an inconsistency between Alluxio and UFS.
+        //todo(jason): remove it? delete ufs -> delete blocks -> delete inode;
         if (!replayed && delInode.isPersisted()) {
           try {
             // If this is a mount point, we have deleted all the children and can unmount it
@@ -1417,6 +1429,7 @@ public final class FileSystemMaster extends AbstractMaster {
     long offset = file.getBlockSizeBytes() * BlockId.getSequenceNumber(blockInfo.getBlockId());
     fileBlockInfo.setOffset(offset);
 
+    //todo(jason): remove it ?????
     if (fileBlockInfo.getBlockInfo().getLocations().isEmpty() && file.isPersisted()) {
       // No alluxio locations, but there is a checkpoint in the under storage system. Add the
       // locations from the under storage system.
@@ -1732,6 +1745,7 @@ public final class FileSystemMaster extends AbstractMaster {
       throw new InvalidPathException(ExceptionMessage.RENAME_CANNOT_BE_TO_ROOT.getMessage());
     }
     // Renaming across mount points is not allowed.
+    //todo(Jason): remove it, just rename in alluxio space, ufs rename control by client;
     String srcMount = mMountTable.getMountPoint(srcInodePath.getUri());
     String dstMount = mMountTable.getMountPoint(dstInodePath.getUri());
     if ((srcMount == null && dstMount != null) || (srcMount != null && dstMount == null)
@@ -1828,6 +1842,7 @@ public final class FileSystemMaster extends AbstractMaster {
 
     // 3. Do UFS operations if necessary.
     // If the source file is persisted, rename it in the UFS.
+    //todo(Jason): remove it.
     try {
       if (!replayed && srcInode.isPersisted()) {
         MountTable.Resolution resolution = mMountTable.resolve(srcPath);
@@ -2190,6 +2205,7 @@ public final class FileSystemMaster extends AbstractMaster {
       throws InvalidPathException, FileDoesNotExistException, BlockInfoException,
       FileAlreadyCompletedException, InvalidFileSizeException,
       AccessControlException, IOException {
+    //todo(Jason): this method should not be called;
     AlluxioURI path = inodePath.getUri();
     MountTable.Resolution resolution = mMountTable.resolve(path);
     AlluxioURI ufsUri = resolution.getUri();

@@ -631,6 +631,7 @@ public class InodeTree implements JournalCheckpointStreamable {
     // those recursively created directories. Even if the directory already exists in the ufs,
     // we mark it as persisted.
     for (Inode<?> inode : toPersistDirectories) {
+      //todo(Jason): remove it.
       MountTable.Resolution resolution = mMountTable.resolve(getPath(inode));
       String ufsUri = resolution.getUri().toString();
       UnderFileSystem ufs = resolution.getUfs();
