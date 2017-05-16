@@ -27,7 +27,7 @@ import javax.annotation.concurrent.NotThreadSafe;
  * </p>
  */
 @NotThreadSafe
-public final class FaultTolerantFileSystem extends AbstractFileSystem {
+public final class FaultTolerantFileSystem extends AbstractFileSystemThrough {
 
   /**
    * Constructs a new {@link FaultTolerantFileSystem}.

@@ -147,7 +147,12 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
             mStatistics.incrementBytesRead(1);
         }
         HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
-        return hdfsUfsInfo.getHdfsUfs().getFileStatus(hdfsUfsInfo.getHdfsPath());
+        FileStatus fileStatus = hdfsUfsInfo.getHdfsUfs().getFileStatus(hdfsUfsInfo.getHdfsPath());
+        //Display the Alluxio Space Path;
+        String alluxioPath = path.toString().concat(
+            fileStatus.getPath().toString().substring(hdfsUfsInfo.getHdfsPath().toString().length()));
+        fileStatus.setPath(new Path(alluxioPath));
+        return fileStatus;
     }
 
     @Override
@@ -301,7 +306,17 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
             mStatistics.incrementBytesRead(1);
         }
         HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
-        return hdfsUfsInfo.getHdfsUfs().listStatus(hdfsUfsInfo.getHdfsPath());
+        String hdfsMountPoint = hdfsUfsInfo.getHdfsPath().toString();
+        FileStatus[] fileStatus = hdfsUfsInfo.getHdfsUfs().listStatus(new Path(hdfsMountPoint));
+        //Display the alluxio space Path
+        for(int i=0;i<fileStatus.length;i++){
+          FileStatus fileStatusInfo = fileStatus[i];
+          String alluxioPath = path.toString().concat(
+              fileStatusInfo.getPath().toString().substring(hdfsUfsInfo.getHdfsPath().toString().length()));
+          fileStatusInfo.setPath(new Path(alluxioPath));
+          fileStatus[i]=fileStatusInfo;
+        }
+        return fileStatus;
     }
 
     @Override
@@ -351,24 +366,25 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
     }
 
     private HdfsUfsInfo PathResolve(Path path) throws IOException {
-      try {
-        Thread.sleep(30000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
       LOG.info("Path Resolve: {}", path);
         try {
-            MountPairInfo mMountPairInfo = mFileSystem.getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)));
-            String alluxioMountPoint = mMountPairInfo.getAlluxioPath();
-            String ufsMountPoint = mMountPairInfo.getUfsPath();
-            //todo: ensure mounit is HDFS mount point;
-            //todo: construct HDFS filesytem with conf
-            org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
-            conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cach","true"));
-            org.apache.hadoop.fs.FileSystem hdfsUfs = org.apache.hadoop.fs.FileSystem.get(new URI(ufsMountPoint), conf);
-            String ufsPath = ufsMountPoint.concat(HadoopUtils.getPathWithoutScheme(path).substring(alluxioMountPoint.length()));
-            LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}",ufsMountPoint,alluxioMountPoint, ufsPath);
-            return new HdfsUfsInfo(ufsPath, hdfsUfs);
+          MountPairInfo mMountPairInfo = mFileSystem.getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)));
+          String alluxioMountPoint = mMountPairInfo.getAlluxioPath();
+          String ufsMountPoint = mMountPairInfo.getUfsPath();
+          //todo: ensure mounit is HDFS mount point;
+          //todo: construct HDFS filesytem with conf
+          URI hdfsUri = new URI(ufsMountPoint);
+          if(!hdfsUri.getScheme().toLowerCase().equals("hdfs")){
+            LOG.error("Scheme of Ufs is not hdfs, is: {}", hdfsUri.getScheme());
+            throw new IOException();
+          }
+
+          org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
+          conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cach","true"));
+          org.apache.hadoop.fs.FileSystem hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri, conf);
+          String ufsPath = ufsMountPoint.concat(HadoopUtils.getPathWithoutScheme(path).substring(alluxioMountPoint.length()));
+          LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}",ufsMountPoint,alluxioMountPoint, ufsPath);
+          return new HdfsUfsInfo(ufsPath, hdfsUfs);
         } catch (AlluxioException e) {
             throw new IOException(e);
         } catch (URISyntaxException e) {
