@@ -235,6 +235,18 @@ public class BaseFileSystem implements FileSystem {
   }
 
   @Override
+  public List<MountPairInfo> listMountPoint() throws IOException, AlluxioException{
+    FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
+    try{
+      return masterClient.listMountPoint();
+    }catch(IOException e){
+      throw e;
+    }finally{
+      mFileSystemContext.releaseMasterClient(masterClient);
+    }
+  }
+
+  @Override
   public FileInStream openFile(AlluxioURI path)
       throws FileDoesNotExistException, IOException, AlluxioException {
     return openFile(path, OpenFileOptions.defaults());

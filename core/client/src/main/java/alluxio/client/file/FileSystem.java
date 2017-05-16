@@ -391,7 +391,14 @@ public interface FileSystem {
    * @throws IOException if a non-alluxio exception occurs
    * @throws AlluxioException if an unexpected Alluxio exception its thrown
    */
-//todo: getMountPairInfo with Options;
   MountPairInfo getUfsPathWithMountTable(AlluxioURI path) throws IOException,AlluxioException;
+
+  /**
+   * list all mount point
+   * @return list of mount point
+   * @throws IOException
+   * @throws AlluxioException
+   */
+  List<MountPairInfo> listMountPoint() throws IOException, AlluxioException;
 
 }

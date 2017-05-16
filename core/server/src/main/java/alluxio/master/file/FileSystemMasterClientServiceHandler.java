@@ -205,6 +205,20 @@ public final class FileSystemMasterClientServiceHandler implements
     });
   }
 
+  @Override
+  public List<MountPairInfo> listMountPoint() throws AlluxioTException{
+    return RpcUtils.call(new RpcCallable<List<MountPairInfo>>() {
+      @Override
+      public List<MountPairInfo> call() throws AlluxioException {
+        List<MountPairInfo> result = new ArrayList<>();
+        for(alluxio.wire.MountPairInfo mountPairInfo: mFileSystemMaster.listMountPoint()){
+          result.add(ThriftUtils.toThrift(mountPairInfo));
+        }
+        return result;
+      }
+    });
+  }
+
   /**
    * {@inheritDoc}
    *

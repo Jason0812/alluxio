@@ -293,6 +293,13 @@ service FileSystemMasterClientService extends common.AlluxioService {
   MountPairInfo getUfsPathWithMountTable(
     /** the path of the directory*/ 1: string path
     )throws(1: exception.AlluxioTException e)
+
+    /**
+    *get All Mount Point
+    */
+    list<MountPairInfo> listMountPoint(
+     )throws(1:exception.AlluxioTException e)
+
 }
 
 /**

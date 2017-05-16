@@ -2590,6 +2590,19 @@ public final class FileSystemMaster extends AbstractMaster {
     return mountPairInfo;
   }
 
+  public List<MountPairInfo> listMountPoint() throws AlluxioException{
+    List<MountPairInfo> result = new ArrayList<>();
+    for(Map.Entry<String, MountInfo> entry: mMountTable.getMountTable().entrySet()){
+      // System.out.println("Mount Table Info: "+ entry.getKey().toString()+ ", "+ entry.getValue().getUfsUri().toString());
+      MountPairInfo mountPairInfo = new MountPairInfo();
+      mountPairInfo.setAlluxioPath(entry.getKey().toString());
+      mountPairInfo.setUfsPath(entry.getValue().getUfsUri().toString());
+      //System.out.println("Debug: I am here: alluxio path: "+mountPairInfo.getAlluxioPath()+" -> ufs path: "+
+      //  mountPairInfo.getUfsPath());
+      result.add(mountPairInfo);
+    }
+    return result;
+  }
 
   /**
    * Unmounts a UFS path previously mounted onto an Alluxio path.

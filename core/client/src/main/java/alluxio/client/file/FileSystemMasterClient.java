@@ -385,4 +385,22 @@ public final class FileSystemMasterClient extends AbstractMasterClient {
     });
   }
 
+  /**
+   * list of Mount point
+   * @return list of mount point
+   * @throws IOException
+   * @throws AlluxioException
+   */
+  public synchronized List<MountPairInfo> listMountPoint() throws IOException, AlluxioException{
+    return retryRPC(new RpcCallableThrowsAlluxioTException<List<MountPairInfo>>() {
+      @Override
+      public List<MountPairInfo> call() throws AlluxioTException, TException {
+        List<MountPairInfo> result = new ArrayList<>();
+        for (alluxio.thrift.MountPairInfo mountPairInfo : mClient.listMountPoint()) {
+          result.add(ThriftUtils.fromThrift(mountPairInfo));
+        }
+        return result;
+      }
+    });
+  }
 }
