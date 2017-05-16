@@ -4,15 +4,20 @@ import alluxio.AlluxioURI;
 import alluxio.Configuration;
 import alluxio.Constants;
 import alluxio.PropertyKey;
+import alluxio.client.WriteType;
 import alluxio.client.file.FileSystem;
 import alluxio.client.file.FileSystemContext;
 import alluxio.client.file.FileSystemMasterClient;
+import alluxio.client.file.options.CreateFileOptions;
 import alluxio.client.lineage.LineageContext;
+import alluxio.collections.PrefixList;
 import alluxio.exception.AlluxioException;
 import alluxio.exception.ConnectionFailedException;
 import alluxio.exception.ExceptionMessage;
 import alluxio.exception.PreconditionMessage;
 import alluxio.security.User;
+import alluxio.security.authorization.Mode;
+import alluxio.underfs.options.DeleteOptions;
 import alluxio.wire.MountPairInfo;
 import com.google.common.base.Preconditions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -58,6 +63,13 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
     private Path mWorkingDir = new Path(AlluxioURI.SEPARATOR);
     private Statistics mStatistics = null;
     private String mAlluxioHeader = null;
+    private PrefixList mUserMustCacheList = new PrefixList(
+        Configuration.getList(PropertyKey.USER_MUSTCACHELIST,","));
+
+    private static final boolean MODE_ROUTE_ENABLED =
+        Configuration.getBoolean(PropertyKey.USER_MODE_ROUTE_ENABLED);
+    private static final boolean MODE_CACHE_ENABLED =
+        Configuration.getBoolean(PropertyKey.USER_MODE_CACHE_ENABLED);
 
     AbstractFileSystemThrough(){
 
@@ -71,6 +83,22 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
     @Override
     public FSDataOutputStream append(Path path, int bufferSize, Progressable progress) throws IOException {
         LOG.info("append: {} {} {}", path, bufferSize, progress);
+
+        //Operation in alluxio space
+        if(MODE_CACHE_ENABLED){
+          AlluxioURI mUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(path));
+          try {
+            if(mFileSystem.exists(mUri)){
+              LOG.info("Alluxio space does not support append.Delete alluxio space data before Ufs append");
+              //todo: separate Alluxio and Ufs;
+              //mFileSystem.delete(mUri);
+            }
+            LOG.info("Path does not in Alluxio space: {}",path.toString());
+          } catch (AlluxioException e) {
+            e.printStackTrace();
+          }
+        }
+
         if(mStatistics != null){
             mStatistics.incrementBytesWritten(1);
         }
@@ -88,15 +116,41 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
     @Override
     public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite,
-       int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
-        LOG.info("create: {} {} {} {} {} {} {}", path, permission, overwrite, bufferSize, replication,
-           blockSize,progress);
-        if (mStatistics != null){
-            mStatistics.incrementBytesWritten(1);
+      int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
+
+      LOG.info("create: {} {} {} {} {} {} {}", path, permission, overwrite, bufferSize, replication,
+         blockSize,progress);
+
+      if (mStatistics != null){
+        mStatistics.incrementBytesWritten(1);
+      }
+      //Alluxio just support write must Cache
+      if(MODE_CACHE_ENABLED){
+        if(mUserMustCacheList.inList(HadoopUtils.getPathWithoutScheme(path))){
+          LOG.info("Create File Path: {}, in UserMustCacheList: {}", path.toString(),mUserMustCacheList);
+          AlluxioURI mUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(path));
+          try {
+            if(mFileSystem.exists(mUri)){
+              if(!overwrite){
+                throw new IOException(ExceptionMessage.FILE_ALREADY_EXISTS.getMessage());
+              }
+              if(mFileSystem.getStatus(mUri).isFolder()){
+                throw new IOException(ExceptionMessage.FILE_CREATE_IS_DIRECTORY.getMessage());
+              }
+              mFileSystem.delete(mUri);
+            }
+            CreateFileOptions options = CreateFileOptions.defaults()
+                .setWriteType(WriteType.MUST_CACHE).setMode(new Mode(permission.toShort()));
+            return new FSDataOutputStream(mFileSystem.createFile(mUri,options),mStatistics);
+          } catch (AlluxioException e) {
+            throw new IOException(e);
+          }
         }
-        HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
-        //todo: verify is file or path, create file with option
-        return new FSDataOutputStream(hdfsUfsInfo.getHdfsUfs().create(hdfsUfsInfo.getHdfsPath()),mStatistics);
+      }
+
+      HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+      //todo: verify is file or path, create file with option
+      return new FSDataOutputStream(hdfsUfsInfo.getHdfsUfs().create(hdfsUfsInfo.getHdfsPath()),mStatistics);
     }
 
     @Deprecated
@@ -119,6 +173,21 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
         if(mStatistics != null){
             mStatistics.incrementBytesRead(1);
         }
+        //delete alluxio space data first;
+        if(MODE_CACHE_ENABLED){
+          AlluxioURI mUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(path));
+          DeleteOptions options = DeleteOptions.defaults().setRecursive(true);
+          try {
+            mFileSystem.delete(mUri);
+            if(mUserMustCacheList.inList(HadoopUtils.getPathWithoutScheme(path))){
+              return true;
+            }
+          } catch (AlluxioException e) {
+            LOG.error("Delete in Alluxio space failed");
+            throw new IOException(e);
+          }
+        }
+        //If path is not in mUserMustCacheList, should delete it in HDFS space;
         HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
         org.apache.hadoop.fs.FileSystem hdfs = hdfsUfsInfo.getHdfsUfs();
         Path hdfsPath = hdfsUfsInfo.getHdfsPath();
