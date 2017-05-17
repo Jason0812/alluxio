@@ -374,13 +374,15 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
           //todo: ensure mounit is HDFS mount point;
           //todo: construct HDFS filesytem with conf
           URI hdfsUri = new URI(ufsMountPoint);
+          LOG.info("hdfsUri: {}", hdfsUri);
           if(!hdfsUri.getScheme().toLowerCase().equals("hdfs")){
             LOG.error("Scheme of Ufs is not hdfs, is: {}", hdfsUri.getScheme());
             throw new IOException();
           }
 
           org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
-          conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cach","true"));
+          conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cache","true"));
+          LOG.info("Path Resolve: {}", conf);
           org.apache.hadoop.fs.FileSystem hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri, conf);
           String ufsPath = ufsMountPoint.concat(HadoopUtils.getPathWithoutScheme(path).substring(alluxioMountPoint.length()));
           LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}",ufsMountPoint,alluxioMountPoint, ufsPath);
