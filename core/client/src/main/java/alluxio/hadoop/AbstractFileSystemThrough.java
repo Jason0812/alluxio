@@ -12,8 +12,8 @@ import alluxio.client.file.FileSystemMasterClient;
 import alluxio.client.file.URIStatus;
 import alluxio.client.file.options.CreateDirectoryOptions;
 import alluxio.client.file.options.CreateFileOptions;
-import alluxio.client.file.options.OpenFileOptions;
 import alluxio.client.file.options.DeleteOptions;
+import alluxio.client.file.options.OpenFileOptions;
 import alluxio.client.file.options.SetAttributeOptions;
 import alluxio.client.lineage.LineageContext;
 import alluxio.collections.PrefixList;
@@ -51,6 +51,7 @@ import java.net.URISyntaxException;
 import java.nio.file.DirectoryNotEmptyException;
 import java.security.Principal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
@@ -70,6 +71,9 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			Configuration.getBoolean(PropertyKey.USER_MODE_ROUTE_ENABLED);
 	private static final boolean MODE_CACHE_ENABLED =
 			Configuration.getBoolean(PropertyKey.USER_MODE_CACHE_ENABLED);
+	private List<MountPairInfo> mMountPonitList = null;
+	private HashMap<String, org.apache.hadoop.fs.FileSystem> hdfsFileSystemCache =
+			new HashMap<>();
 	/**
 	 * Flag for if the contexts have been initialized.
 	 */
@@ -856,19 +860,49 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	private HdfsUfsInfo PathResolve(Path path) throws IOException {
 		LOG.info("Path Resolve: {}", path);
 		try {
-			MountPairInfo mMountPairInfo = mFileSystem.getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)));
-			String alluxioMountPoint = mMountPairInfo.getAlluxioPath();
-			String ufsMountPoint = mMountPairInfo.getUfsPath();
-			URI hdfsUri = new URI(ufsMountPoint);
-			if (!hdfsUri.getScheme().toLowerCase().equals("hdfs")) {
-				LOG.error("Scheme of Ufs is not hdfs, is: {}", hdfsUri.getScheme());
-				throw new IOException();
+			String mPath = HadoopUtils.getPathWithoutScheme(path);
+			String alluxioMountPoint = null;
+			String ufsMountPoint = null;
+			if(mMountPonitList == null){
+				mMountPonitList = mFileSystem.listMountPoint();
 			}
+			if(mMountPonitList == null){
+				LOG.error("MountTable without any mountPoint");
+				throw new IOException();
+			}else {
+				boolean isFoundMountPoint = false;
+				for (MountPairInfo mMountPointInfo : mMountPonitList) {
+					//mMountPointCache.put(mMountPointInfo.getAlluxioPath(),mMountPointInfo.getUfsPath());
+					if (mPath.startsWith(mMountPointInfo.getAlluxioPath())) {
+						isFoundMountPoint = true;
+						alluxioMountPoint = mMountPointInfo.getAlluxioPath();
+						ufsMountPoint = mMountPointInfo.getUfsPath();
+						break;
+					}
+				}
+				if(!isFoundMountPoint){
+					LOG.error("Cannot find MountPoint for path: {}, in MountTable: {}", path, mMountPonitList);
+					throw new IOException();
+				}
+			}
+			URI hdfsUri = new URI(ufsMountPoint);
 
 			org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
 			conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cache", "true"));
-			org.apache.hadoop.fs.FileSystem hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri, conf);
-			String ufsPath = ufsMountPoint.concat(HadoopUtils.getPathWithoutScheme(path).substring(alluxioMountPoint.length()));
+			String authority = hdfsUri.getAuthority();
+			org.apache.hadoop.fs.FileSystem hdfsUfs = null;
+			if (hdfsFileSystemCache != null) {
+				hdfsUfs = hdfsFileSystemCache.get(authority);
+				if(hdfsUfs == null){
+					hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri,conf);
+					hdfsFileSystemCache.put(authority,hdfsUfs);
+				}
+			}else{
+				hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri,conf);
+				hdfsFileSystemCache.put(authority,hdfsUfs);
+			}
+
+			String ufsPath = ufsMountPoint.concat(mPath.substring(alluxioMountPoint.length()));
 			LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
 			return new HdfsUfsInfo(ufsPath, hdfsUfs);
 		} catch (AlluxioException e) {
