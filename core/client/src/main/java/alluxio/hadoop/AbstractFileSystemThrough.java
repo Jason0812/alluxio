@@ -357,9 +357,12 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		FileStatus fileStatus = null;
 		try {
 			fileStatus = hdfsUfsInfo.getHdfsUfs().getFileStatus(hdfsUfsInfo.getHdfsPath());
-		}catch (IOException e){
+		}catch(FileNotFoundException e){
+			LOG.info("File Not found, path: {}", path);
+			throw e;
+		} catch (IOException e1){
 			LOG.error("getFileStatus for HDFS space failed, path: {}", path);
-			throw new IOException(e);
+			throw new IOException(e1);
 		}
 		//Display the Alluxio Space Path;
 		String alluxioPath = path.toString().concat(
