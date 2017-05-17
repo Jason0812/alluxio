@@ -183,10 +183,9 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		}
 
 		HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
-		//todo: verify is file or path, create file with option
 		try {
 			return new FSDataOutputStream(hdfsUfsInfo.getHdfsUfs().create(hdfsUfsInfo.getHdfsPath(),
-					permission,overwrite,bufferSize,(short)BLOCK_REPLICATION_CONSTANT,blockSize,progress)
+					permission,overwrite,bufferSize,(short)BLOCK_REPLICATION_CONSTANT,blockSize,progress),
 					mStatistics);
 		}catch (IOException e){
 			LOG.error("HDFS Space create failed.");
@@ -262,14 +261,14 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		String mPath = HadoopUtils.getPathWithoutScheme(file.getPath());
 		if (MODE_CACHE_ENABLED) {
 			AlluxioURI mUri = new AlluxioURI(mPath);
-			boolean isExistsInAlluxio = false;
-			try {
-				isExistsInAlluxio = mFileSystem.exists(mUri);
-			} catch (IOException | AlluxioException e) {
-				e.printStackTrace();
+			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
+			if (!isExistsInAlluxio && mUserMustCacheList.inList(mPath)){
+				LOG.error("getFileBlockLocations failed from Alluxio Space, path: {}, userMustCacheList: {}",
+						mPath, mUserMustCacheList);
+				throw new FileNotFoundException();
 			}
 			try {
-				if (mFileSystem.exists(mUri) || mUserMustCacheList.inList(mPath)) {
+				if (isExistsInAlluxio) {
 					//getFileBlockLocations from alluxio space;
 					List<FileBlockInfo> blocks = mFileSystem.getStatus(mUri).getFileBlockInfos();
 					List<BlockLocation> blockLocations = new ArrayList<>();
@@ -306,7 +305,12 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			}
 		}
 		HdfsUfsInfo hdfsUfsInfo = PathResolve(file.getPath());
-		return hdfsUfsInfo.getHdfsUfs().getFileBlockLocations(hdfsUfsInfo.getHdfsPath(), start, len);
+		try {
+			return hdfsUfsInfo.getHdfsUfs().getFileBlockLocations(hdfsUfsInfo.getHdfsPath(), start, len);
+		}catch (IOException e){
+			LOG.error("getFileBlockLocations from HDFS space failed. path: ", mPath);
+			throw new IOException(e);
+		}
 	}
 
 	@Override
@@ -777,14 +781,20 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		}
 	}
 
+	private boolean isExistsInAlluxio(AlluxioURI path) throws IOException{
+		try {
+			return mFileSystem.exists(path);
+		} catch (AlluxioException e) {
+			throw new IOException(e);
+		}
+	}
+
 	private HdfsUfsInfo PathResolve(Path path) throws IOException {
 		LOG.info("Path Resolve: {}", path);
 		try {
 			MountPairInfo mMountPairInfo = mFileSystem.getUfsPathWithMountTable(new AlluxioURI(HadoopUtils.getPathWithoutScheme(path)));
 			String alluxioMountPoint = mMountPairInfo.getAlluxioPath();
 			String ufsMountPoint = mMountPairInfo.getUfsPath();
-			//todo: ensure mounit is HDFS mount point;
-			//todo: construct HDFS filesytem with conf
 			URI hdfsUri = new URI(ufsMountPoint);
 			if (!hdfsUri.getScheme().toLowerCase().equals("hdfs")) {
 				LOG.error("Scheme of Ufs is not hdfs, is: {}", hdfsUri.getScheme());
@@ -792,7 +802,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			}
 
 			org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
-			conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cach", "true"));
+			conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cache", "true"));
 			org.apache.hadoop.fs.FileSystem hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri, conf);
 			String ufsPath = ufsMountPoint.concat(HadoopUtils.getPathWithoutScheme(path).substring(alluxioMountPoint.length()));
 			LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
