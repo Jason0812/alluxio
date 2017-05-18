@@ -69,7 +69,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	private static final boolean MODE_CACHE_ENABLED =
 			Configuration.getBoolean(PropertyKey.USER_MODE_CACHE_ENABLED);
 	//To Store MountTable
-	private List<MountPairInfo> mMountPonitList = null;
+	private List<MountPairInfo> mMountPonitList = new ArrayList<>();
 	//Cache HDFS FileSystem
 	private HashMap<String, org.apache.hadoop.fs.FileSystem> hdfsFileSystemCache =
 			new HashMap<>();
@@ -87,6 +87,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	//if Path start with it, it will just cache in Alluxio Space;
 	private PrefixList mUserMustCacheList = new PrefixList(
 			Configuration.getList(PropertyKey.USER_MUSTCACHELIST, ","));
+
 	private org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
 
 	AbstractFileSystemThrough() {
@@ -902,7 +903,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cache", "true"));
 			String authority = hdfsUri.getAuthority();
 			org.apache.hadoop.fs.FileSystem hdfsUfs = null;
-			if (hdfsFileSystemCache != null) {
+			if (hdfsFileSystemCache.size() != 0) {
 				hdfsUfs = hdfsFileSystemCache.get(authority);
 				if(hdfsUfs == null){
 					hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri,conf);
