@@ -17,11 +17,7 @@ import alluxio.client.file.options.OpenFileOptions;
 import alluxio.client.file.options.SetAttributeOptions;
 import alluxio.client.lineage.LineageContext;
 import alluxio.collections.PrefixList;
-import alluxio.exception.AlluxioException;
-import alluxio.exception.ConnectionFailedException;
-import alluxio.exception.ExceptionMessage;
-import alluxio.exception.InvalidPathException;
-import alluxio.exception.PreconditionMessage;
+import alluxio.exception.*;
 import alluxio.security.User;
 import alluxio.security.authorization.Mode;
 import alluxio.util.CommonUtils;
@@ -59,7 +55,7 @@ import java.util.List;
  * Created by guoyejun on 2017/5/10.
  */
 abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem {
-	public static final String FIRST_COM_PATH = "alluxio_dep/";
+	//public static final String FIRST_COM_PATH = "alluxio_dep/";
 	private static final Logger LOG = LoggerFactory.getLogger(Constants.LOGGER_TYPE);
 	// Always tell Hadoop that we have 3x replication.
 	private static final int BLOCK_REPLICATION_CONSTANT = 3;
@@ -67,11 +63,14 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	 * Lock for initializing the contexts, currently only one set of contexts is supported.
 	 */
 	private static final Object INIT_LOCK = new Object();
+	//In our use case, Route Mode is always enabled;
 	private static final boolean MODE_ROUTE_ENABLED =
 			Configuration.getBoolean(PropertyKey.USER_MODE_ROUTE_ENABLED);
 	private static final boolean MODE_CACHE_ENABLED =
 			Configuration.getBoolean(PropertyKey.USER_MODE_CACHE_ENABLED);
+	//To Store MountTable
 	private List<MountPairInfo> mMountPonitList = null;
+	//Cache HDFS FileSystem
 	private HashMap<String, org.apache.hadoop.fs.FileSystem> hdfsFileSystemCache =
 			new HashMap<>();
 	/**
@@ -85,6 +84,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	private Path mWorkingDir = new Path(AlluxioURI.SEPARATOR);
 	private Statistics mStatistics = null;
 	private String mAlluxioHeader = null;
+	//if Path start with it, it will just cache in Alluxio Space;
 	private PrefixList mUserMustCacheList = new PrefixList(
 			Configuration.getList(PropertyKey.USER_MUSTCACHELIST, ","));
 
@@ -121,9 +121,11 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 				try {
 					LOG.info("Append file in Alluxio space, delete it first. Path: {}", path);
 					mFileSystem.delete(mUri);
-				} catch (IOException | AlluxioException e) {
+				} catch(FileDoesNotExistException e){
+					throw new FileNotFoundException("File not found");
+				} catch (IOException | AlluxioException e1) {
 					LOG.error("Delete Failed.");
-					throw new IOException(e);
+					throw new IOException(e1);
 				}
 			}
 		}
@@ -175,10 +177,12 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 					CreateFileOptions options = CreateFileOptions.defaults()
 							.setWriteType(WriteType.MUST_CACHE).setMode(new Mode(permission.toShort()));
 					return new FSDataOutputStream(mFileSystem.createFile(mUri, options), mStatistics);
-				} catch (IOException | AlluxioException e) {
+				} catch (FileDoesNotExistException e){
+						throw new FileNotFoundException("File not found");
+				} catch (IOException | AlluxioException e1) {
 					LOG.error("create: {} {} {} {} {} {} {} failed in Alluxio Space", path, permission, overwrite, bufferSize, replication,
 						blockSize, progress);
-					throw new IOException(e);
+					throw new IOException(e1);
 				}
 			}
 		}
@@ -231,7 +235,10 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 				if(isExistsInAlluxio) {
 					mFileSystem.delete(mUri,options);
 				}
-			}catch (DirectoryNotEmptyException e1){
+			} catch (FileDoesNotExistException e){
+				LOG.info("File does not exist exception, path: {}", path);
+				throw new FileNotFoundException("File not found");
+			} catch (DirectoryNotEmptyException e1){
 				LOG.error("Directory is not empty, please set Recursive. Path: {}, isRecursive: {}",
 						path, recursive);
 				throw new IOException(e1);
