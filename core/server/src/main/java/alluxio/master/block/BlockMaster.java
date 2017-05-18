@@ -486,6 +486,7 @@ public final class BlockMaster extends AbstractMaster implements ContainerIdGene
    * @param blockId the id of the block to commit
    * @param length the length of the block
    */
+  //todo(jason): the usage of ##commitBlockInUFS
   public void commitBlockInUFS(long blockId, long length) {
     LOG.debug("Commit block in ufs. blockId: {}, length: {}", blockId, length);
     if (mBlocks.get(blockId) != null) {

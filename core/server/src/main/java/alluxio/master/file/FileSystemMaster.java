@@ -269,7 +269,8 @@ public final class FileSystemMaster extends AbstractMaster {
         throw new RuntimeException(e);
       }
     } else if (entry.hasPersistDirectory()) {
-      //todo: Jason, not to remove;
+      //todo(Jason): In our use case, the file in alluxio space must with MUST_CACHE writetype
+      //todo(Jason): need not to remove it;
       PersistDirectoryEntry typedEntry = entry.getPersistDirectory();
       try (LockedInodePath inodePath = mInodeTree.lockFullInodePath(typedEntry.getId(),
           InodeTree.LockMode.WRITE)) {
@@ -346,7 +347,7 @@ public final class FileSystemMaster extends AbstractMaster {
       // If it is standby, it should be able to load the inode tree from leader's checkpoint.
       mInodeTree
           .initializeRoot(Permission.defaults().applyDirectoryUMask().setOwnerFromLoginModule());
-      //todo: Jason, how to set this default ufs; local is best;
+      //todo(Jason): In our use case, default ufs: local is best
       String defaultUFS = Configuration.get(PropertyKey.UNDERFS_ADDRESS);
       try {
         mMountTable.add(new AlluxioURI(MountTable.ROOT), new AlluxioURI(defaultUFS),
@@ -381,6 +382,11 @@ public final class FileSystemMaster extends AbstractMaster {
   }
 
   /**
+   * todo(Jason): How to use checkconsistency in our use case
+   * From the doc, this feature is called by client, not periodically;
+   */
+
+  /**
    * Checks the consistency of the root in a multi-threaded and incremental fashion. This method
    * will only READ lock the directories and files actively being checked and release them after the
    * check on the file / directory is complete.
@@ -391,7 +397,6 @@ public final class FileSystemMaster extends AbstractMaster {
    */
   private List<AlluxioURI> startupCheckConsistency(final ExecutorService service)
       throws InterruptedException, IOException {
-    //todo: Jason, the usage of this feature;
     /** A marker {@link StartupConsistencyChecker}s add to the queue to signal completion */
     final long completionMarker = -1;
     /** A shared queue of directories which have yet to be checked */
@@ -593,16 +598,17 @@ public final class FileSystemMaster extends AbstractMaster {
    * @return the file id for a given path, or -1 if there is no file at that path
    * @throws AccessControlException if permission checking fails
    */
+  //TODO(Jason): should check the usage of this API; check return value;
   public long getFileId(AlluxioURI path) throws AccessControlException {
     long flushCounter = AsyncJournalWriter.INVALID_FLUSH_COUNTER;
     try (LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.WRITE)) {
       // This is WRITE locked, since loading metadata is possible.
       mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
-      //todo: Jason, remove it, and just checking alluxio space metadata
-      flushCounter = loadMetadataIfNotExistAndJournal(inodePath,
+      if(LOAD_METADATA_FROM_UFS_ENABLED) {
+        flushCounter = loadMetadataIfNotExistAndJournal(inodePath,
           LoadMetadataOptions.defaults().setCreateAncestors(true));
+      }
       mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
-      //todo: jason, when file is not in alluxio Space, should return -1;
       return inodePath.getInode().getId();
     } catch (InvalidPathException | FileDoesNotExistException e) {
       return IdUtils.INVALID_FILE_ID;
@@ -657,18 +663,21 @@ public final class FileSystemMaster extends AbstractMaster {
         return getFileInfoInternal(inodePath);
       }
     }
-
-    try (LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.WRITE)) {
-      // This is WRITE locked, since loading metadata is possible.
-      mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
-      //todo: jason, remove it;
-      flushCounter = loadMetadataIfNotExistAndJournal(inodePath,
+    if (LOAD_METADATA_FROM_UFS_ENABLED) {
+      try (LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.WRITE)) {
+        // This is WRITE locked, since loading metadata is possible.
+        mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
+        flushCounter = loadMetadataIfNotExistAndJournal(inodePath,
           LoadMetadataOptions.defaults().setCreateAncestors(true));
-      mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
-      return getFileInfoInternal(inodePath);
-    } finally {
-      // finally runs after resources are closed (unlocked).
-      waitForJournalFlush(flushCounter);
+        mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
+        return getFileInfoInternal(inodePath);
+      } finally {
+        // finally runs after resources are closed (unlocked).
+        waitForJournalFlush(flushCounter);
+      }
+    } else {
+      //TODO(Jason): should check the usage of this metod;
+      throw new FileDoesNotExistException("File not found in Alluxio space.");
     }
   }
 
@@ -691,17 +700,20 @@ public final class FileSystemMaster extends AbstractMaster {
         throw new FileDoesNotExistException(e.getMessage(), e);
       }
     }
-    //todo: jason
-    MountTable.Resolution resolution;
-    try {
-      resolution = mMountTable.resolve(uri);
-    } catch (InvalidPathException e) {
-      throw new FileDoesNotExistException(e.getMessage(), e);
-    }
-    AlluxioURI resolvedUri = resolution.getUri();
-    // Only set the UFS path if the path is nested under a mount point.
-    if (!uri.equals(resolvedUri)) {
-      fileInfo.setUfsPath(resolvedUri.toString());
+
+    //TODO(Jason): In our use case, Alluxio space should not load the data from Ufs auto.
+    if (LOAD_METADATA_FROM_UFS_ENABLED) {
+      MountTable.Resolution resolution;
+      try {
+        resolution = mMountTable.resolve(uri);
+      } catch (InvalidPathException e) {
+        throw new FileDoesNotExistException(e.getMessage(), e);
+      }
+      AlluxioURI resolvedUri = resolution.getUri();
+      // Only set the UFS path if the path is nested under a mount point.
+      if (!uri.equals(resolvedUri)) {
+        fileInfo.setUfsPath(resolvedUri.toString());
+      }
     }
     Metrics.FILE_INFOS_GOT.inc();
     return fileInfo;
@@ -746,20 +758,24 @@ public final class FileSystemMaster extends AbstractMaster {
       // This is WRITE locked, since loading metadata is possible.
       mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
 
-      LoadMetadataOptions loadMetadataOptions =
-          LoadMetadataOptions.defaults().setCreateAncestors(true).setLoadDirectChildren(
-              listStatusOptions.getLoadMetadataType() != LoadMetadataType.Never);
       Inode<?> inode;
-      if (inodePath.fullPathExists()) {
-        inode = inodePath.getInode();
-        if (inode.isDirectory()
+
+      if(LOAD_METADATA_FROM_UFS_ENABLED) {
+        LoadMetadataOptions loadMetadataOptions =
+          LoadMetadataOptions.defaults().setCreateAncestors(true).setLoadDirectChildren(
+            listStatusOptions.getLoadMetadataType() != LoadMetadataType.Never);
+
+        if (inodePath.fullPathExists()) {
+          inode = inodePath.getInode();
+          if (inode.isDirectory()
             && listStatusOptions.getLoadMetadataType() != LoadMetadataType.Always
             && ((InodeDirectory) inode).isDirectChildrenLoaded()) {
-          loadMetadataOptions.setLoadDirectChildren(false);
+            loadMetadataOptions.setLoadDirectChildren(false);
+          }
         }
+        flushCounter = loadMetadataIfNotExistAndJournal(inodePath, loadMetadataOptions);
       }
-      //todo:jason, remove it;
-      flushCounter = loadMetadataIfNotExistAndJournal(inodePath, loadMetadataOptions);
+
       mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
       inode = inodePath.getInode();
 
@@ -806,6 +822,7 @@ public final class FileSystemMaster extends AbstractMaster {
    * @throws InvalidPathException if the path is invalid
    * @throws IOException if an error occurs interacting with the under storage
    */
+  //TODO(Jason): the usage of this method;
   public List<AlluxioURI> checkConsistency(AlluxioURI path, CheckConsistencyOptions options)
       throws AccessControlException, FileDoesNotExistException, InvalidPathException, IOException {
     List<AlluxioURI> inconsistentUris = new ArrayList<>();
@@ -844,9 +861,9 @@ public final class FileSystemMaster extends AbstractMaster {
    * @throws FileDoesNotExistException if the path cannot be found in the Alluxio inode tree
    * @throws InvalidPathException if the path is not well formed
    */
+  //TODO(Jason): in our case, data is always consistent
   private boolean checkConsistencyInternal(Inode inode, AlluxioURI path)
       throws FileDoesNotExistException, InvalidPathException, IOException {
-    //todo: jason, needed this feature????????
     MountTable.Resolution resolution = mMountTable.resolve(path);
     UnderFileSystem ufs = resolution.getUfs();
     String ufsPath = resolution.getUri().getPath();
@@ -942,7 +959,7 @@ public final class FileSystemMaster extends AbstractMaster {
 
     // If the file is persisted, its length is determined by UFS. Otherwise, its length is
     // determined by its memory footprint.
-    //todo(jason): the length is determined by its memory footprint;
+    //TODO(Jason): in our use case, length = inMemoryLength always.
     long length = fileInode.isPersisted() ? options.getUfsLength() : inMemoryLength;
 
     completeFileInternal(fileInode.getBlockIds(), inodePath, length, opTimeMs);
@@ -973,8 +990,9 @@ public final class FileSystemMaster extends AbstractMaster {
     inode.setBlockIds(blockIds);
     inode.setLastModificationTimeMs(opTimeMs);
     inode.complete(length);
-    //todo(jason):
-    if (inode.isPersisted()) {
+
+    //TODO(Jason): should handler commitBlockInUFS
+    if (LOAD_METADATA_FROM_UFS_ENABLED && inode.isPersisted()) {
       // Commit all the file blocks (without locations) so the metadata for the block exists.
       long currLength = length;
       for (long blockId : inode.getBlockIds()) {
@@ -1073,6 +1091,7 @@ public final class FileSystemMaster extends AbstractMaster {
       CreateFileOptions options)
       throws InvalidPathException, FileAlreadyExistsException, BlockInfoException, IOException,
       FileDoesNotExistException {
+    //TODO(Jason): should handle creatPath;
     InodeTree.CreatePathResult createResult = mInodeTree.createPath(inodePath, options);
     // If the create succeeded, the list of created inodes will not be empty.
     List<Inode<?>> created = createResult.getCreated();
@@ -1104,6 +1123,7 @@ public final class FileSystemMaster extends AbstractMaster {
       TtlAction ttlAction) throws InvalidPathException, FileDoesNotExistException {
     long flushCounter = AsyncJournalWriter.INVALID_FLUSH_COUNTER;
     try (LockedInodePath inodePath = mInodeTree.lockFullInodePath(path, InodeTree.LockMode.WRITE)) {
+      //TODO(Jason): should check reinitializeFile
       long id = mInodeTree.reinitializeFile(inodePath, blockSizeBytes, ttl, ttlAction);
       ReinitializeFileEntry reinitializeFile = ReinitializeFileEntry.newBuilder()
           .setPath(path.getPath()).setBlockSizeBytes(blockSizeBytes).setTtl(ttl)
@@ -1170,6 +1190,7 @@ public final class FileSystemMaster extends AbstractMaster {
   /**
    * @return the number of pinned files and directories
    */
+  //TODO(Jason): Importantly, how to use pin in memory for use case??????
   public int getNumberOfPinnedFiles() {
     return mInodeTree.getPinnedSize();
   }
@@ -1321,12 +1342,13 @@ public final class FileSystemMaster extends AbstractMaster {
 
         // TODO(jiri): What should the Alluxio behavior be when a UFS delete operation fails?
         // Currently, it will result in an inconsistency between Alluxio and UFS.
-        //todo(jason): remove it? delete ufs -> delete blocks -> delete inode;
-        if (!replayed && delInode.isPersisted()) {
+        //TODO(Jason): should test!!!!!!
+        if (LOAD_METADATA_FROM_UFS_ENABLED && !replayed && delInode.isPersisted()) {
           try {
             // If this is a mount point, we have deleted all the children and can unmount it
             // TODO(calvin): Add tests (ALLUXIO-1831)
             if (mMountTable.isMountPoint(alluxioUriToDel)) {
+              //comment(Jason): in our case, mount table should not be delete always
               unmountInternal(alluxioUriToDel);
             } else {
               // Delete the file in the under file system.
@@ -1403,6 +1425,7 @@ public final class FileSystemMaster extends AbstractMaster {
   private List<FileBlockInfo> getFileBlockInfoListInternal(LockedInodePath inodePath)
     throws InvalidPathException, FileDoesNotExistException {
     InodeFile file = inodePath.getInodeFile();
+    //TODO(Jason): should check blockMaster##getBlockInfoList
     List<BlockInfo> blockInfoList = mBlockMaster.getBlockInfoList(file.getBlockIds());
 
     List<FileBlockInfo> ret = new ArrayList<>();
@@ -1432,8 +1455,9 @@ public final class FileSystemMaster extends AbstractMaster {
     long offset = file.getBlockSizeBytes() * BlockId.getSequenceNumber(blockInfo.getBlockId());
     fileBlockInfo.setOffset(offset);
 
-    //todo(jason): remove it ?????
-    if (fileBlockInfo.getBlockInfo().getLocations().isEmpty() && file.isPersisted()) {
+    //TODO(Jason): should check the method usage.
+    if (LOAD_METADATA_FROM_UFS_ENABLED && fileBlockInfo.getBlockInfo().getLocations().isEmpty()
+      && file.isPersisted()) {
       // No alluxio locations, but there is a checkpoint in the under storage system. Add the
       // locations from the under storage system.
       MountTable.Resolution resolution = mMountTable.resolve(inodePath.getUri());
@@ -1533,6 +1557,7 @@ public final class FileSystemMaster extends AbstractMaster {
     }
 
     long inMemoryLength = 0;
+    //TODO(Jason): should check BlockMaster##getBlockInfoList
     for (BlockInfo info : mBlockMaster.getBlockInfoList(inodeFile.getBlockIds())) {
       if (isInTopStorageTier(info)) {
         inMemoryLength += info.getLength();
@@ -1627,6 +1652,7 @@ public final class FileSystemMaster extends AbstractMaster {
       CreateDirectoryOptions options) throws InvalidPathException, FileAlreadyExistsException,
       IOException, AccessControlException, FileDoesNotExistException {
     try {
+      //TODO(Jason): check InodeTree##createPath
       return mInodeTree.createPath(inodePath, options);
     } catch (BlockInfoException e) {
       // Since we are creating a directory, the block size is ignored, no such exception should
@@ -1665,12 +1691,15 @@ public final class FileSystemMaster extends AbstractMaster {
       // At least one directory was created, so journal the state of the directory id generator.
       counter = appendJournalEntry(mDirectoryIdGenerator.toJournalEntry());
     }
-    for (Inode<?> inode : createResult.getPersisted()) {
-      PersistDirectoryEntry persistDirectory = PersistDirectoryEntry.newBuilder()
+    //TODO(Jason): add test.
+    if (LOAD_METADATA_FROM_UFS_ENABLED) {
+      for (Inode<?> inode : createResult.getPersisted()) {
+        PersistDirectoryEntry persistDirectory = PersistDirectoryEntry.newBuilder()
           .setId(inode.getId())
           .build();
-      counter = appendJournalEntry(
+        counter = appendJournalEntry(
           JournalEntry.newBuilder().setPersistDirectory(persistDirectory).build());
+      }
     }
     return counter;
   }
@@ -1749,12 +1778,14 @@ public final class FileSystemMaster extends AbstractMaster {
     }
     // Renaming across mount points is not allowed.
     //todo(Jason): remove it, just rename in alluxio space, ufs rename control by client;
-    String srcMount = mMountTable.getMountPoint(srcInodePath.getUri());
-    String dstMount = mMountTable.getMountPoint(dstInodePath.getUri());
-    if ((srcMount == null && dstMount != null) || (srcMount != null && dstMount == null)
+    if(LOAD_METADATA_FROM_UFS_ENABLED) {
+      String srcMount = mMountTable.getMountPoint(srcInodePath.getUri());
+      String dstMount = mMountTable.getMountPoint(dstInodePath.getUri());
+      if ((srcMount == null && dstMount != null) || (srcMount != null && dstMount == null)
         || (srcMount != null && dstMount != null && !srcMount.equals(dstMount))) {
-      throw new InvalidPathException(ExceptionMessage.RENAME_CANNOT_BE_ACROSS_MOUNTS.getMessage(
+        throw new InvalidPathException(ExceptionMessage.RENAME_CANNOT_BE_ACROSS_MOUNTS.getMessage(
           srcInodePath.getUri(), dstInodePath.getUri()));
+      }
     }
     // Renaming onto a mount point is not allowed.
     if (mMountTable.isMountPoint(dstInodePath.getUri())) {
@@ -1789,8 +1820,10 @@ public final class FileSystemMaster extends AbstractMaster {
     // Now we remove srcInode from its parent and insert it into dstPath's parent
     long opTimeMs = System.currentTimeMillis();
     renameInternal(srcInodePath, dstInodePath, false, opTimeMs);
-    List<Inode<?>> persistedInodes = propagatePersistedInternal(srcInodePath, false);
-    journalPersistedInodes(persistedInodes);
+    if (LOAD_METADATA_FROM_UFS_ENABLED) {
+      List<Inode<?>> persistedInodes = propagatePersistedInternal(srcInodePath, false);
+      journalPersistedInodes(persistedInodes);
+    }
 
     RenameEntry rename = RenameEntry.newBuilder()
         .setId(srcInode.getId())
@@ -1845,60 +1878,61 @@ public final class FileSystemMaster extends AbstractMaster {
 
     // 3. Do UFS operations if necessary.
     // If the source file is persisted, rename it in the UFS.
-    //todo(Jason): remove it.
-    try {
-      if (!replayed && srcInode.isPersisted()) {
-        MountTable.Resolution resolution = mMountTable.resolve(srcPath);
+    //TODO(Jason): add test.
+    if (LOAD_METADATA_FROM_UFS_ENABLED) {
+      try {
+        if (!replayed && srcInode.isPersisted()) {
+          MountTable.Resolution resolution = mMountTable.resolve(srcPath);
 
-        String ufsSrcPath = resolution.getUri().toString();
-        UnderFileSystem ufs = resolution.getUfs();
-        String ufsDstUri = mMountTable.resolve(dstPath).getUri().toString();
-        // Create ancestor directories from top to the bottom. We cannot use recursive create
-        // parents here because the permission for the ancestors can be different.
-        List<Inode<?>> dstInodeList = dstInodePath.getInodeList();
-        Stack<Pair<String, MkdirsOptions>> ufsDirsToMakeWithOptions = new Stack<>();
-        AlluxioURI curUfsDirPath = new AlluxioURI(ufsDstUri).getParent();
-        // The dst inode does not exist yet, so the last inode in the list is the existing parent.
-        for (int i = dstInodeList.size() - 1; i >= 0; i--) {
-          if (ufs.isDirectory(curUfsDirPath.toString())) {
-            break;
-          }
-          Inode<?> curInode = dstInodeList.get(i);
-          Permission perm = new Permission(curInode.getOwner(), curInode.getGroup(),
+          String ufsSrcPath = resolution.getUri().toString();
+          UnderFileSystem ufs = resolution.getUfs();
+          String ufsDstUri = mMountTable.resolve(dstPath).getUri().toString();
+          // Create ancestor directories from top to the bottom. We cannot use recursive create
+          // parents here because the permission for the ancestors can be different.
+          List<Inode<?>> dstInodeList = dstInodePath.getInodeList();
+          Stack<Pair<String, MkdirsOptions>> ufsDirsToMakeWithOptions = new Stack<>();
+          AlluxioURI curUfsDirPath = new AlluxioURI(ufsDstUri).getParent();
+          // The dst inode does not exist yet, so the last inode in the list is the existing parent.
+          for (int i = dstInodeList.size() - 1; i >= 0; i--) {
+            if (ufs.isDirectory(curUfsDirPath.toString())) {
+              break;
+            }
+            Inode<?> curInode = dstInodeList.get(i);
+            Permission perm = new Permission(curInode.getOwner(), curInode.getGroup(),
               curInode.getMode());
-          MkdirsOptions mkdirsOptions = MkdirsOptions.defaults().setCreateParent(false)
+            MkdirsOptions mkdirsOptions = MkdirsOptions.defaults().setCreateParent(false)
               .setPermission(perm);
-          ufsDirsToMakeWithOptions.push(new Pair<>(curUfsDirPath.toString(), mkdirsOptions));
-          curUfsDirPath = curUfsDirPath.getParent();
-        }
-        while (!ufsDirsToMakeWithOptions.empty()) {
-          Pair<String, MkdirsOptions> ufsDirAndPerm = ufsDirsToMakeWithOptions.pop();
-          if (!ufs.mkdirs(ufsDirAndPerm.getFirst(), ufsDirAndPerm.getSecond())) {
-            throw new IOException(
+            ufsDirsToMakeWithOptions.push(new Pair<>(curUfsDirPath.toString(), mkdirsOptions));
+            curUfsDirPath = curUfsDirPath.getParent();
+          }
+          while (!ufsDirsToMakeWithOptions.empty()) {
+            Pair<String, MkdirsOptions> ufsDirAndPerm = ufsDirsToMakeWithOptions.pop();
+            if (!ufs.mkdirs(ufsDirAndPerm.getFirst(), ufsDirAndPerm.getSecond())) {
+              throw new IOException(
                 ExceptionMessage.FAILED_UFS_CREATE.getMessage(ufsDirAndPerm.getFirst()));
+            }
+          }
+          boolean success;
+          if (srcInode.isFile()) {
+            success = ufs.renameFile(ufsSrcPath, ufsDstUri);
+          } else {
+            success = ufs.renameDirectory(ufsSrcPath, ufsDstUri);
+          }
+          if (!success) {
+            throw new IOException(
+              ExceptionMessage.FAILED_UFS_RENAME.getMessage(ufsSrcPath, ufsDstUri));
           }
         }
-        boolean success;
-        if (srcInode.isFile()) {
-          success = ufs.renameFile(ufsSrcPath, ufsDstUri);
-        } else {
-          success = ufs.renameDirectory(ufsSrcPath, ufsDstUri);
+      } catch (Exception e) {
+        // On failure, revert changes and throw exception.
+        if (!dstParentInode.removeChild(dstName)) {
+          LOG.error("Failed to revert rename changes. Alluxio metadata may be inconsistent.");
         }
-        if (!success) {
-          throw new IOException(
-              ExceptionMessage.FAILED_UFS_RENAME.getMessage(ufsSrcPath, ufsDstUri));
-        }
+        srcInode.setName(srcName);
+        srcInode.setParentId(srcParentInode.getId());
+        throw e;
       }
-    } catch (Exception e) {
-      // On failure, revert changes and throw exception.
-      if (!dstParentInode.removeChild(dstName)) {
-        LOG.error("Failed to revert rename changes. Alluxio metadata may be inconsistent.");
-      }
-      srcInode.setName(srcName);
-      srcInode.setParentId(srcParentInode.getId());
-      throw e;
     }
-
     // TODO(jiri): A crash between now and the time the rename operation is journaled will result in
     // an inconsistency between Alluxio and UFS.
 
@@ -1906,6 +1940,7 @@ public final class FileSystemMaster extends AbstractMaster {
     // reverted or removeChild will not be able to find the appropriate child entry since it is
     // keyed on the original name.
     srcInode.setName(srcName);
+    //todo(Jason): check ##removeChild
     if (!srcParentInode.removeChild(srcInode)) {
       // This should never happen.
       LOG.error("Failed to rename {} to {} in Alluxio. Alluxio and under storage may be "
@@ -1964,6 +1999,7 @@ public final class FileSystemMaster extends AbstractMaster {
    * @return list of inodes which were marked as persisted
    * @throws FileDoesNotExistException if a non-existent file is encountered
    */
+  //todo(jason): check the usage of ##
   private List<Inode<?>> propagatePersistedInternal(LockedInodePath inodePath, boolean replayed)
       throws FileDoesNotExistException {
     Inode<?> inode = inodePath.getInode();
@@ -2117,6 +2153,7 @@ public final class FileSystemMaster extends AbstractMaster {
    */
   public List<Long> getLostFiles() {
     Set<Long> lostFiles = new HashSet<>();
+    //todo(jason): check BlockMaster##getLostBlocks
     for (long blockId : mBlockMaster.getLostBlocks()) {
       // the file id is the container id of the block id
       long containerId = BlockId.getContainerId(blockId);
@@ -2923,7 +2960,9 @@ public final class FileSystemMaster extends AbstractMaster {
     boolean ownerGroupChanged = (options.getOwner() != null) || (options.getGroup() != null);
     boolean modeChanged = (options.getMode() != Constants.INVALID_MODE);
     // If the file is persisted in UFS, also update corresponding owner/group/permission.
-    if ((ownerGroupChanged || modeChanged) && !replayed && inode.isPersisted()) {
+    // todo(jason): add test.
+    if ((ownerGroupChanged || modeChanged) && !replayed && inode.isPersisted()
+      && LOAD_METADATA_FROM_UFS_ENABLED) {
       if ((inode instanceof InodeFile) && !((InodeFile) inode).isCompleted()) {
         LOG.debug("Alluxio does not propagate chown/chgrp/chmod to UFS for incomplete files.");
       } else {
