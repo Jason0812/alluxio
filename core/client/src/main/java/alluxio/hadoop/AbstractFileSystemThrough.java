@@ -100,7 +100,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public FSDataOutputStream append(Path path, int bufferSize, Progressable progress) throws IOException {
-		LOG.info("append: {} {} {}", path, bufferSize, progress);
+		LOG.debug("append: {} {} {}", path, bufferSize, progress);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesWritten(1);
 		}
@@ -119,7 +119,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 			if(isExistsInAlluxio){
 				try {
-					LOG.info("Append file in Alluxio space, delete it first. Path: {}", path);
+					LOG.debug("Append file in Alluxio space, delete it first. Path: {}", path);
 					mFileSystem.delete(mUri);
 				} catch(FileDoesNotExistException e){
 					throw new FileNotFoundException("File not found");
@@ -135,7 +135,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		try {
 			return hdfsUfsInfo.getHdfsUfs().append(hdfsUfsInfo.getHdfsPath(), bufferSize, progress);
 		}catch(IOException e){
-			LOG.info("HDFS append failed");
+			LOG.error("HDFS append failed");
 			throw new IOException(e);
 		}
 	}
@@ -152,7 +152,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite,
 			int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
 
-		LOG.info("create: {} {} {} {} {} {} {}", path, permission, overwrite, bufferSize, replication,
+		LOG.debug("create: {} {} {} {} {} {} {}", path, permission, overwrite, bufferSize, replication,
 				blockSize, progress);
 
 		if (mStatistics != null) {
@@ -161,7 +161,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		//Alluxio just support write must Cache
 		if (MODE_CACHE_ENABLED) {
 			if (mUserMustCacheList.inList(HadoopUtils.getPathWithoutScheme(path))) {
-				LOG.info("Create File Path: {}, in UserMustCacheList: {}", path.toString(), mUserMustCacheList);
+				LOG.debug("Create File Path: {}, in UserMustCacheList: {}", path.toString(), mUserMustCacheList);
 				AlluxioURI mUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(path));
 				boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 				try {
@@ -215,7 +215,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public boolean delete(Path path, boolean recursive) throws IOException {
-		LOG.info("delete: {} {}", path, recursive);
+		LOG.debug("delete: {} {}", path, recursive);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
@@ -228,7 +228,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			boolean isInUserMustCacheList = mUserMustCacheList.inList(mPath);
 
 			if(!isExistsInAlluxio && isInUserMustCacheList){
-				LOG.warn("delete path: {} not in alluxio space", path);
+				LOG.debug("delete path: {} not in alluxio space", path);
 				return true;
 			}
 			try {
@@ -236,7 +236,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 					mFileSystem.delete(mUri,options);
 				}
 			} catch (FileDoesNotExistException e){
-				LOG.info("File does not exist exception, path: {}", path);
+				LOG.debug("File does not exist exception, path: {}", path);
 				throw new FileNotFoundException("File not found");
 			} catch (DirectoryNotEmptyException e1){
 				LOG.error("Directory is not empty, please set Recursive. Path: {}, isRecursive: {}",
@@ -272,7 +272,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	}
 
 	public BlockLocation[] getFileBlockLocations(FileStatus file, long start, long len) throws IOException {
-		LOG.info("Get File Block Location: {} {} {}", file, start, len);
+		LOG.debug("Get File Block Location: {} {} {}", file, start, len);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
@@ -334,7 +334,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public FileStatus getFileStatus(Path path) throws IOException {
-		LOG.info("Get status: {}", path);
+		LOG.debug("Get status: {}", path);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
@@ -365,7 +365,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		try {
 			fileStatus = hdfsUfsInfo.getHdfsUfs().getFileStatus(hdfsUfsInfo.getHdfsPath());
 		}catch(FileNotFoundException e){
-			LOG.info("File Not found, path: {}", path);
+			LOG.debug("File Not found, path: {}", path);
 			throw e;
 		} catch (IOException e1){
 			LOG.error("getFileStatus for HDFS space failed, path: {}", path);
@@ -380,7 +380,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public void setOwner(Path path, final String username, final String groupname) throws IOException {
-		LOG.info("Set owner: {} {} {}", path, username, groupname);
+		LOG.debug("Set owner: {} {} {}", path, username, groupname);
 
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
@@ -436,7 +436,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public void setPermission(Path path, FsPermission permission) throws IOException {
-		LOG.info("Set permission: {} {}", path, permission);
+		LOG.debug("Set permission: {} {}", path, permission);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
@@ -492,14 +492,14 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public Path getWorkingDirectory() {
-		LOG.info("getWorkingDirectory: {}", mWorkingDir);
+		LOG.debug("getWorkingDirectory: {}", mWorkingDir);
 		return mWorkingDir;
 	}
 
 	//todo: the usage of this api
 	@Override
 	public void setWorkingDirectory(Path path) {
-		LOG.info("setWorkingDirectory({})", path);
+		LOG.debug("setWorkingDirectory({})", path);
 		if (path.isAbsolute()) {
 			mWorkingDir = path;
 		} else {
@@ -514,7 +514,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		Preconditions.checkNotNull(uri.getPort(), PreconditionMessage.URI_PORT_NULL);
 
 		super.initialize(uri, conf);
-		LOG.info("initialize({}, {}). Connecting to Alluxio", uri, conf);
+		LOG.debug("initialize({}, {}). Connecting to Alluxio", uri, conf);
 		HadoopUtils.addS3Credentials(conf);
 		HadoopUtils.addSwiftCredentials(conf);
 		setConf(conf);
@@ -619,7 +619,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public FileStatus[] listStatus(Path path) throws IOException {
-		LOG.info("File Status: {}", path);
+		LOG.debug("File Status: {}", path);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
@@ -674,6 +674,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			LOG.error("listStatus failed in HDFS Space, path: {}", path);
 			throw new IOException(e);
 		}
+
 		//Display the alluxio space Path
 		for (int i = 0; i < fileStatus.length; i++) {
 			FileStatus fileStatusInfo = fileStatus[i];
@@ -687,7 +688,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public boolean mkdirs(Path path, FsPermission permission) throws IOException {
-		LOG.info("mkdirs: {} {}", path, permission);
+		LOG.debug("mkdirs: {} {}", path, permission);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesWritten(1);
 		}
@@ -719,7 +720,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public FSDataInputStream open(Path path, int bufferSize) throws IOException {
-		LOG.info("open: {} {}", path, bufferSize);
+		LOG.debug("open: {} {}", path, bufferSize);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
@@ -740,9 +741,9 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 					fileInStream = mFileSystem.openFile(mUri, options);
 				}
 			} catch (FileNotFoundException e) {
-				LOG.info("open file failed in alluxio space. path: {}", path);
+				LOG.debug("open file failed in alluxio space. path: {}", path);
 			} catch (AlluxioException e1) {
-				LOG.info("Open file in Alluxio space failed.");
+				LOG.debug("Open file in Alluxio space failed.");
 			}
 
 			if (fileInStream != null || mUserMustCacheList.inList(mPath)) {
@@ -761,7 +762,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	@Override
 	public boolean rename(Path src, Path dst) throws IOException {
-		LOG.info("rename: {} {}", src, dst);
+		LOG.debug("rename: {} {}", src, dst);
 
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
@@ -868,7 +869,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	}
 
 	private HdfsUfsInfo PathResolve(Path path) throws IOException {
-		LOG.info("Path Resolve: {}", path);
+		LOG.debug("Path Resolve: {}", path);
 		try {
 			String mPath = HadoopUtils.getPathWithoutScheme(path);
 			String alluxioMountPoint = null;
@@ -913,7 +914,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			}
 
 			String ufsPath = ufsMountPoint.concat(mPath.substring(alluxioMountPoint.length()));
-			LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
+			LOG.debug("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
 			return new HdfsUfsInfo(ufsPath, hdfsUfs);
 		} catch (AlluxioException e) {
 			throw new IOException(e);
