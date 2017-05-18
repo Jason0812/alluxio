@@ -146,6 +146,10 @@ public final class FileSystemMaster extends AbstractMaster {
    * (D) cannot call (D)
    */
 
+  /** This enable the master to load metadata form ufs **/
+  private static final boolean LOAD_METADATA_FROM_UFS_ENABLED = Configuration.getBoolean(
+    PropertyKey.MASTER_LOAD_METADATA_FROM_UFS_ENABLED);
+
   /** Handle to the block master. */
   private final BlockMaster mBlockMaster;
 
@@ -168,7 +172,6 @@ public final class FileSystemMaster extends AbstractMaster {
   private final PrefixList mWhitelist;
 
   /** The handler for async persistence. */
-  //todo: Jason when separate alluxio and ufs, this is not neeeded???????
   private final AsyncPersistHandler mAsyncPersistHandler;
 
   /**

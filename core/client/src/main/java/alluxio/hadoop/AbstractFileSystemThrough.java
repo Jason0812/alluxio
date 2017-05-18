@@ -87,6 +87,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	//if Path start with it, it will just cache in Alluxio Space;
 	private PrefixList mUserMustCacheList = new PrefixList(
 			Configuration.getList(PropertyKey.USER_MUSTCACHELIST, ","));
+	private org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
 
 	AbstractFileSystemThrough() {
 
@@ -898,7 +899,6 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			}
 			URI hdfsUri = new URI(ufsMountPoint);
 
-			org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
 			conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cache", "true"));
 			String authority = hdfsUri.getAuthority();
 			org.apache.hadoop.fs.FileSystem hdfsUfs = null;
