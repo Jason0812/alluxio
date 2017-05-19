@@ -235,7 +235,7 @@ public class BaseFileSystem implements FileSystem {
   }
 
   @Override
-  public List<MountPairInfo> listMountPoint() throws IOException, AlluxioException{
+  public List<MountPairInfo> getMountTable() throws IOException, AlluxioException{
     FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
     try{
       return masterClient.listMountPoint();

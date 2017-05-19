@@ -399,6 +399,6 @@ public interface FileSystem {
    * @throws IOException
    * @throws AlluxioException
    */
-  List<MountPairInfo> listMountPoint() throws IOException, AlluxioException;
+  List<MountPairInfo> getMountTable() throws IOException, AlluxioException;
 
 }
