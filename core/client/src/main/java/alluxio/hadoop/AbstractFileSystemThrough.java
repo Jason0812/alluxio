@@ -55,6 +55,9 @@ import java.util.List;
 
 /**
  * Created by guoyejun on 2017/5/10.
+ * This Class is for HDFS Unified namespace client proxy; it can proxy the request to HDFS, Alluxio or Both according
+ * to MODE(ROUTE_MODE & CACHE_MODE) and UserMustCacheList;
+ * Use case: All path is mount from the UFS except root;
  */
 abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem {
 	//public static final String FIRST_COM_PATH = "alluxio_dep/";
@@ -65,12 +68,12 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	 * Lock for initializing the contexts, currently only one set of contexts is supported.
 	 */
 	private static final Object INIT_LOCK = new Object();
-	//In our use case, Route Mode is always enabled;
+
 	private static final boolean MODE_ROUTE_ENABLED =
 			Configuration.getBoolean(PropertyKey.USER_MODE_ROUTE_ENABLED);
 	private static final boolean MODE_CACHE_ENABLED =
 			Configuration.getBoolean(PropertyKey.USER_MODE_CACHE_ENABLED);
-	//Cache HDFS FileSystem
+
 	private HashMap<String, org.apache.hadoop.fs.FileSystem> hdfsFileSystemCache =
 			new HashMap<>();
 	private List<MountPairInfo> mMountPonitList = null;
@@ -86,9 +89,10 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	private Path mWorkingDir = new Path(AlluxioURI.SEPARATOR);
 	private Statistics mStatistics = null;
 	private String mAlluxioHeader = null;
-	//if Path start with it, it will just cache in Alluxio Space;
+
 	private PrefixList mUserMustCacheList = new PrefixList(
 			Configuration.getList(PropertyKey.USER_MUSTCACHELIST, ","));
+
 	private org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
 
 	AbstractFileSystemThrough() {
@@ -108,21 +112,17 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			mStatistics.incrementBytesWritten(1);
 		}
 
-		//Operation in alluxio
 		String mPath = HadoopUtils.getPathWithoutScheme(path);
-		boolean isExistsInAlluxio = false;
 
 		if (MODE_CACHE_ENABLED) {
 			AlluxioURI mUri = new AlluxioURI(mPath);
+			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 
 			if (mUserMustCacheList.inList(mPath)){
 				LOG.error("append path: {} in UserMustCacheList: {}, " +
 						"Alluxio Space does not support append currently", path, mUserMustCacheList);
-				//todo(cr)
-				throw new UnsupportedOperationException("Append failed");
+				throw new IOException();
 			}
-
-			isExistsInAlluxio = isExistsInAlluxio(mUri);
 
 			if(isExistsInAlluxio){
 				try {
@@ -157,7 +157,6 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	@Override
 	public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite,
 			int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
-
 		LOG.debug("create: {} {} {} {} {} {} {}", path, permission, overwrite, bufferSize, replication,
 				blockSize, progress);
 
@@ -170,7 +169,6 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			if (mUserMustCacheList.inList(HadoopUtils.getPathWithoutScheme(path))) {
 				LOG.debug("Create File Path: {}, in UserMustCacheList: {}", path.toString(), mUserMustCacheList);
 				AlluxioURI mUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(path));
-
 				boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 				try {
 					if (isExistsInAlluxio) {
@@ -185,7 +183,6 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 					CreateFileOptions options = CreateFileOptions.defaults()
 							.setWriteType(WriteType.MUST_CACHE).setMode(new Mode(permission.toShort()));
-
 					return new FSDataOutputStream(mFileSystem.createFile(mUri, options), mStatistics);
 				} catch (IOException | AlluxioException e1) {
 					LOG.error("create: {} {} {} {} {} {} {} failed in Alluxio Space", path, permission, overwrite, bufferSize, replication,
@@ -233,37 +230,27 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			String mPath = HadoopUtils.getPathWithoutScheme(path);
 			AlluxioURI mUri = new AlluxioURI(mPath);
 			DeleteOptions options = DeleteOptions.defaults().setRecursive(recursive);
-			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
-			boolean isInUserMustCacheList = mUserMustCacheList.inList(mPath);
-
-			//try{
-			//	mFileSystem.delete()
-			//catch(filenotExcepetion)..
-			//if(isInUserMustCacheList) return;
-			if(!isExistsInAlluxio && isInUserMustCacheList){
-				//todo(cr)
-				LOG.warn("Delete path: {} not in alluxio space", path);
-				return true;
-				//todo(cr):
-				//throw new FileNotFoundException();
-			}
+			boolean inUserMustCacheList = mUserMustCacheList.inList(mPath);
 
 			try {
-				if(isExistsInAlluxio) {
-					mFileSystem.delete(mUri,options);
+				mFileSystem.delete(mUri, options);
+				if (inUserMustCacheList) {
+					return true;
+				}
+			} catch (FileDoesNotExistException e){
+				LOG.error("FileDoesnotExistException, path: {}", path);
+				if (inUserMustCacheList) {
+					throw new FileNotFoundException("FileNotFound");
 				}
 			} catch (DirectoryNotEmptyException e1){
 				LOG.error("Directory is not empty, please set Recursive. Path: {}, isRecursive: {}",
-						path, recursive);
+					path, recursive);
 				throw new IOException(e1);
-			} catch (IOException | AlluxioException e2) {
-				LOG.error("Delete in Alluxio space failed, path: {}", path.toString());
-				throw new IOException(e2);
-			}
-			//file in UserMustCacheList, delete just delete in alluxio space;
-			//others will delete in alluxio space first and the delete in HDFS space;
-			if (isInUserMustCacheList) {
-				return true;
+			} catch (AlluxioException e2) {
+				LOG.error("Delete in Alluxio space failed, path: {}", path);
+				if (inUserMustCacheList) {
+					throw new IOException(e2);
+				}
 			}
 		}
 
@@ -287,56 +274,56 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	public BlockLocation[] getFileBlockLocations(FileStatus file, long start, long len) throws IOException {
 		LOG.debug("Get File Block Location: {} {} {}", file, start, len);
+
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
-		//Get File Block locations from alluxio first;
-		String mPath = HadoopUtils.getPathWithoutScheme(file.getPath());
 
+		String mPath = HadoopUtils.getPathWithoutScheme(file.getPath());
 		if (MODE_CACHE_ENABLED) {
 			AlluxioURI mUri = new AlluxioURI(mPath);
 			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
-			if (!isExistsInAlluxio && mUserMustCacheList.inList(mPath)){
-				LOG.error("getFileBlockLocations failed from Alluxio Space, file: {}, userMustCacheList: {}",
-						file, mUserMustCacheList);
-				throw new IOException();
-			}
-			try {
-				if (isExistsInAlluxio) {
-					//getFileBlockLocations from alluxio space;
-					List<FileBlockInfo> blocks = mFileSystem.getStatus(mUri).getFileBlockInfos();
-					List<BlockLocation> blockLocations = new ArrayList<>();
-					for (FileBlockInfo fileBlockInfo : blocks) {
-						long offset = fileBlockInfo.getOffset();
-						long end = offset + fileBlockInfo.getBlockInfo().getLength();
-						// Check if there is any overlapping between [start, start+len] and [offset, end]
-						if (end >= start && offset <= start + len) {
-							ArrayList<String> names = new ArrayList<>();
-							ArrayList<String> hosts = new ArrayList<>();
-							// add the existing in-memory block locations
-							for (alluxio.wire.BlockLocation location : fileBlockInfo.getBlockInfo().getLocations()) {
-								HostAndPort address = HostAndPort.fromParts(location.getWorkerAddress().getHost(),
-										location.getWorkerAddress().getDataPort());
-								names.add(address.toString());
-								hosts.add(address.getHostText());
-							}
+			boolean inUserMustCacheList = mUserMustCacheList.inList(mPath);
 
-							blockLocations.add(new BlockLocation(CommonUtils.toStringArray(names),
-									CommonUtils.toStringArray(hosts), offset, fileBlockInfo.getBlockInfo().getLength()));
+			try {
+				List<FileBlockInfo> blocks = mFileSystem.getStatus(mUri).getFileBlockInfos();
+				List<BlockLocation> blockLocations = new ArrayList<>();
+				for (FileBlockInfo fileBlockInfo : blocks) {
+					long offset = fileBlockInfo.getOffset();
+					long end = offset + fileBlockInfo.getBlockInfo().getLength();
+					// Check if there is any overlapping between [start, start+len] and [offset, end]
+					if (end >= start && offset <= start + len) {
+						ArrayList<String> names = new ArrayList<>();
+						ArrayList<String> hosts = new ArrayList<>();
+						// add the existing in-memory block locations
+						for (alluxio.wire.BlockLocation location : fileBlockInfo.getBlockInfo().getLocations()) {
+							HostAndPort address = HostAndPort.fromParts(location.getWorkerAddress().getHost(),
+								location.getWorkerAddress().getDataPort());
+							names.add(address.toString());
+							hosts.add(address.getHostText());
 						}
+
+						blockLocations.add(new BlockLocation(CommonUtils.toStringArray(names),
+							CommonUtils.toStringArray(hosts), offset, fileBlockInfo.getBlockInfo().getLength()));
 					}
-					BlockLocation[] ret = new BlockLocation[blockLocations.size()];
-					blockLocations.toArray(ret);
-					return ret;
 				}
-			} catch (AlluxioException e) {
-				LOG.error("getFileBlockLocations failed from Alluxio Space, file: {}", file);
-				throw new IOException(e);
+				BlockLocation[] ret = new BlockLocation[blockLocations.size()];
+				blockLocations.toArray(ret);
+				return ret;
+			} catch (FileDoesNotExistException e) {
+				LOG.error("FileDostNotExistException, file: {}", file);
+				if (inUserMustCacheList) {
+					throw new FileNotFoundException("FileNotFound");
+				}
+			} catch (AlluxioException e1) {
+				LOG.error("getFileBlockLocations Faild, file: {}", file);
+				if (inUserMustCacheList) {
+					throw new IOException(e1);
+				}
 			}
 		}
 
 		HdfsUfsInfo hdfsUfsInfo = PathResolve(file.getPath());
-
 		try {
 			return hdfsUfsInfo.getHdfsUfs().getFileBlockLocations(hdfsUfsInfo.getHdfsPath(), start, len);
 		}catch (IOException e){
@@ -354,33 +341,34 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		}
 
 		if (MODE_CACHE_ENABLED) {
-			LOG.info("getFileStatus from Alluxio Space first.");
 			String mPath = HadoopUtils.getPathWithoutScheme(path);
 			AlluxioURI mUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(path));
-			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 			boolean inMustCacheList = mUserMustCacheList.inList(mPath);
-			if (!isExistsInAlluxio && inMustCacheList){
-				LOG.error("File not in Alluxio Space, path: {}", path);
-				throw new IOException();
-			}
-			try {
-				if (isExistsInAlluxio && inMustCacheList) {
+			if (inMustCacheList) {
+				try {
 					URIStatus fileStatus = mFileSystem.getStatus(mUri);
 					return new FileStatus(fileStatus.getLength(), fileStatus.isFolder(), BLOCK_REPLICATION_CONSTANT,
-							fileStatus.getBlockSizeBytes(), fileStatus.getLastModificationTimeMs(), fileStatus.getCreationTimeMs(),
-							new FsPermission((short) fileStatus.getMode()), fileStatus.getOwner(), fileStatus.getGroup(),
-							new Path(mAlluxioHeader + mUri));
+						fileStatus.getBlockSizeBytes(), fileStatus.getLastModificationTimeMs(), fileStatus.getCreationTimeMs(),
+						new FsPermission((short) fileStatus.getMode()), fileStatus.getOwner(), fileStatus.getGroup(),
+						new Path(mAlluxioHeader + mUri));
+				} catch (FileDoesNotExistException e) {
+					LOG.error("FileDoesNotExistException. path: {}", path);
+					throw new FileNotFoundException("FileNotFound");
+				} catch (AlluxioException e1) {
+					LOG.error("getStatus from Alluxio Space failed. path: {}", path);
+					throw new IOException(e1);
 				}
-			} catch (AlluxioException e) {
-				LOG.error("getFileStatus failed from Alluxio Space, path: {}", path);
-				throw new IOException(e);
 			}
 		}
 
 		HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
-		FileStatus fileStatus = null;
 		try {
-			fileStatus = hdfsUfsInfo.getHdfsUfs().getFileStatus(hdfsUfsInfo.getHdfsPath());
+			FileStatus fileStatus = hdfsUfsInfo.getHdfsUfs().getFileStatus(hdfsUfsInfo.getHdfsPath());
+			//revert to Alluxio space path;
+			String alluxioPath = path.toString().concat(
+				fileStatus.getPath().toString().substring(hdfsUfsInfo.getHdfsPath().toString().length()));
+			fileStatus.setPath(new Path(alluxioPath));
+			return fileStatus;
 		}catch(FileNotFoundException e){
 			LOG.debug("File Not found, path: {}", path);
 			throw e;
@@ -388,14 +376,17 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			LOG.error("getFileStatus for HDFS space failed, path: {}", path);
 			throw new IOException(e1);
 		}
-
-		//Display the Alluxio Space Path;
-		String alluxioPath = path.toString().concat(
-				fileStatus.getPath().toString().substring(hdfsUfsInfo.getHdfsPath().toString().length()));
-		fileStatus.setPath(new Path(alluxioPath));
-		return fileStatus;
 	}
 
+	/**
+	 * setOwner and group for specified path.
+	 * set in Alluxio Space first if exists, and then to set in hdfs Space,
+	 * if set failed in UFS after set succeed in alluxio space before, should roll back and throw IOException;
+	 * @param path path to set
+	 * @param username username to set
+	 * @param groupname groupname to set
+	 * @throws IOException
+	 */
 	@Override
 	public void setOwner(Path path, final String username, final String groupname) throws IOException {
 		LOG.debug("Set owner: {} {} {}", path, username, groupname);
@@ -403,37 +394,40 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
+
 		URIStatus fileStatus = null;
 		String mPath = HadoopUtils.getPathWithoutScheme(path);
 		AlluxioURI mUri = new AlluxioURI(mPath);
+
 		if (MODE_CACHE_ENABLED) {
-			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
-			if(!isExistsInAlluxio && mUserMustCacheList.inList(mPath)){
-				LOG.error("setOwner failed in Alluxio Sapce, path: {}, UserMustCacheList", path, mUserMustCacheList);
-				throw new FileNotFoundException();
+			boolean isInUserCacheMustList = mUserMustCacheList.inList(mPath);
+			//roll back after hdfs set failed, while alluxio space success.
+			SetAttributeOptions options = SetAttributeOptions.defaults();
+			boolean ownerOrGroupChgd = false;
+			if (username != null && !username.isEmpty()) {
+				options.setOwner(username).setRecursive(false);
+				ownerOrGroupChgd = true;
 			}
-			try {
-				if (isExistsInAlluxio) {
-					SetAttributeOptions options = SetAttributeOptions.defaults();
-					boolean ownerOrGroupChgd = false;
-					if (username != null && !username.isEmpty()) {
-						options.setOwner(username).setRecursive(false);
-						ownerOrGroupChgd = true;
+			if (groupname != null && !groupname.isEmpty()) {
+				options.setGroup(groupname).setRecursive(false);
+				ownerOrGroupChgd = true;
+			}
+			if (ownerOrGroupChgd) {
+				try {
+					fileStatus = mFileSystem.getStatus(mUri);
+					mFileSystem.setAttribute(mUri, options);
+					if (isInUserCacheMustList) {
+						return ;
 					}
-					if (groupname != null && !groupname.isEmpty()) {
-						options.setGroup(groupname).setRecursive(false);
-						ownerOrGroupChgd = true;
+				} catch (FileDoesNotExistException e) {
+					LOG.error("FileDoesNotExistException, path: {}", path);
+					if (isInUserCacheMustList) {
+						throw new IOException(e);
 					}
-					if (ownerOrGroupChgd) {
-						mFileSystem.setAttribute(mUri, options);
-					}
-					if (mUserMustCacheList.inList(HadoopUtils.getPathWithoutScheme(path))) {
-						return;
-					}
+				} catch (AlluxioException e1) {
+					LOG.error("setOwner failed in Alluxio space.path: {}", path);
+					throw new IOException(e1);
 				}
-			} catch (AlluxioException e) {
-				LOG.error("setOwner failed in Alluxio Space, path: {}", path);
-				throw new IOException(e);
 			}
 		}
 
@@ -452,36 +446,45 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		}
 	}
 
+	/**
+	 * setPermission for specified path.
+	 * set in Alluxio Space first if exists, and then to set in hdfs Space,
+	 * if set failed in UFS after set succeed in alluxio space before, should roll back and throw IOException;
+	 * @param path path to set
+	 * @param permission permission to set
+	 * @throws IOException
+	 */
 	@Override
 	public void setPermission(Path path, FsPermission permission) throws IOException {
 		LOG.debug("Set permission: {} {}", path, permission);
+
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
+
 		URIStatus fileStatus = null;
 		String mPath = HadoopUtils.getPathWithoutScheme(path);
 		AlluxioURI mUri = new AlluxioURI(mPath);
+
 		if (MODE_CACHE_ENABLED) {
-			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 			boolean isInUserMustCacheList = mUserMustCacheList.inList(mPath);
 
-			if(!isExistsInAlluxio && isInUserMustCacheList){
-				LOG.error("setPermission failed in Alluxio space, path: {}, permission: {}", path, permission);
-				throw new FileNotFoundException();
-			}
 			try {
-				if (isExistsInAlluxio) {
-					SetAttributeOptions options = SetAttributeOptions.defaults()
-							.setMode(new Mode(permission.toShort())).setRecursive(false);
-					fileStatus = mFileSystem.getStatus(mUri);
-					mFileSystem.setAttribute(mUri, options);
-					if (isInUserMustCacheList) {
-						return;
-					}
+				SetAttributeOptions options = SetAttributeOptions.defaults()
+					.setMode(new Mode(permission.toShort())).setRecursive(false);
+				fileStatus = mFileSystem.getStatus(mUri);
+				mFileSystem.setAttribute(mUri, options);
+				if (isInUserMustCacheList) {
+					return;
 				}
-			} catch (AlluxioException e) {
+			} catch (FileDoesNotExistException e) {
+				LOG.error("FileDoseNotExistException, path: {}", path);
+				if (isInUserMustCacheList) {
+					throw new IOException(e);
+				}
+			} catch (AlluxioException e1) {
 				LOG.error("setOwner failed in Alluxio Space, path: {}", path);
-				throw new IOException(e);
+				throw new IOException(e1);
 			}
 		}
 
@@ -502,7 +505,6 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	public abstract String getScheme();
 
-	//todo: these two methods usage
 	@Override
 	public URI getUri() {
 		return mUri;
@@ -514,7 +516,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		return mWorkingDir;
 	}
 
-	//todo: the usage of this api
+
 	@Override
 	public void setWorkingDirectory(Path path) {
 		LOG.debug("setWorkingDirectory({})", path);
@@ -525,6 +527,9 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		}
 	}
 
+	/**
+	 * TODO(Jason): need to investigate initilize method;
+	 */
 	@SuppressFBWarnings("ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD")
 	@Override
 	public void initialize(URI uri, org.apache.hadoop.conf.Configuration conf) throws IOException {
@@ -532,6 +537,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		Preconditions.checkNotNull(uri.getPort(), PreconditionMessage.URI_PORT_NULL);
 
 		super.initialize(uri, conf);
+		conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cache", "true"));
 		LOG.debug("initialize({}, {}). Connecting to Alluxio", uri, conf);
 		//todo(cr): check
 		HadoopUtils.addS3Credentials(conf);
@@ -620,6 +626,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		return false;
 	}
 
+	//TODO(Jason): this method is need ????????????
 	private Subject getHadoopSubject() {
 		try {
 			UserGroupInformation ugi = UserGroupInformation.getCurrentUser();
@@ -638,73 +645,73 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	protected abstract boolean isZookeeperMode();
 
+	/**
+	 * List status has two situation,
+	 * 1. path just in Alluxio space, load metadata from Alluxio Master;
+	 * 2. path both in Alluixo space and hdfs or just in hdfs space only, load metadata from hdfs namenode;
+	 * after get the status from hdfs, should transfer to alluxio path uri with
+	 * alluxio mountpoint and ufs mountpoint;
+	 * @param path path to list status
+	 * @return
+	 * @throws IOException
+	 */
 	@Override
 	public FileStatus[] listStatus(Path path) throws IOException {
 		LOG.debug("File Status: {}", path);
+
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
 
-		//file cache in alluxio space;
 		if (MODE_CACHE_ENABLED) {
 			String mPath = HadoopUtils.getPathWithoutScheme(path);
 			AlluxioURI mUri = new AlluxioURI(mPath);
-			List<URIStatus> statuses = null;
-			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 			boolean isInUserMustCacheList = mUserMustCacheList.inList(mPath);
-			if(!isExistsInAlluxio && isInUserMustCacheList){
-				LOG.error("listStatus failed in Alluxio Space, path: {}, UserMustCacheList: {}", path, mUserMustCacheList);
-				throw new FileNotFoundException();
-			}
-			try {
-				if (isExistsInAlluxio) {
-					statuses = mFileSystem.listStatus(mUri);
-				}
-			} catch (InvalidPathException e) {
-				LOG.error("Invalid Path Exception. path: {}", path);
-				throw new IOException(e);
-			} catch (FileNotFoundException e1) {
-				LOG.error("File Not Found, path: {}", path);
-				throw new IOException(e1);
-			} catch (AlluxioException e2) {
-				LOG.error("listStatus failed, path: {}", path);
-				throw new IOException(e2);
-			}
 
-			if (statuses != null || isInUserMustCacheList) {
-				FileStatus[] ret = new FileStatus[statuses.size()];
-				for (int k = 0; k < statuses.size(); k++) {
-					URIStatus status = statuses.get(k);
+			if (isInUserMustCacheList) {
+				try {
+					List<URIStatus> statuses = mFileSystem.listStatus(mUri);
+					FileStatus[] ret = new FileStatus[statuses.size()];
+					for (int k = 0; k < statuses.size(); k++) {
+						URIStatus status = statuses.get(k);
 
-					ret[k] = new FileStatus(status.getLength(), status.isFolder(), BLOCK_REPLICATION_CONSTANT,
+						ret[k] = new FileStatus(status.getLength(), status.isFolder(), BLOCK_REPLICATION_CONSTANT,
 							status.getBlockSizeBytes(), status.getLastModificationTimeMs(),
 							status.getCreationTimeMs(), new FsPermission((short) status.getMode()), status.getOwner(),
 							status.getGroup(), new Path(mAlluxioHeader + status.getPath()));
+					}
+					return ret;
+				} catch (FileDoesNotExistException e) {
+					LOG.error("FileDoesNotExistException, path: {}", path);
+					throw new FileNotFoundException("FileNotFound");
+				} catch(InvalidPathException e){
+					LOG.error("Invalid Path Exception. path: {}", path);
+					throw new IOException(e);
+				} catch(AlluxioException e2){
+					LOG.error("listStatus failed, path: {}", path);
+					throw new IOException(e2);
 				}
-				return ret;
 			}
 		}
 
 		//file not in alluxio space, while in hdfs space;
 		HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
 		String hdfsMountPoint = hdfsUfsInfo.getHdfsPath().toString();
-		FileStatus[] fileStatus = null;
 		try {
-			fileStatus = hdfsUfsInfo.getHdfsUfs().listStatus(new Path(hdfsMountPoint));
+			FileStatus[] fileStatus = hdfsUfsInfo.getHdfsUfs().listStatus(new Path(hdfsMountPoint));
+			//Display the alluxio space Path
+			for (int i = 0; i < fileStatus.length; i++) {
+				FileStatus fileStatusInfo = fileStatus[i];
+				String alluxioPath = path.toString().concat(
+					fileStatusInfo.getPath().toString().substring(hdfsUfsInfo.getHdfsPath().toString().length()));
+				fileStatusInfo.setPath(new Path(alluxioPath));
+				fileStatus[i] = fileStatusInfo;
+			}
+			return fileStatus;
 		}catch (IOException e){
 			LOG.error("listStatus failed in HDFS Space, path: {}", path);
 			throw new IOException(e);
 		}
-
-		//Display the alluxio space Path
-		for (int i = 0; i < fileStatus.length; i++) {
-			FileStatus fileStatusInfo = fileStatus[i];
-			String alluxioPath = path.toString().concat(
-					fileStatusInfo.getPath().toString().substring(hdfsUfsInfo.getHdfsPath().toString().length()));
-			fileStatusInfo.setPath(new Path(alluxioPath));
-			fileStatus[i] = fileStatusInfo;
-		}
-		return fileStatus;
 	}
 
 	@Override
@@ -721,7 +728,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 				if (mUserMustCacheList.inList(mPath)) {
 				try {
-					//todo(cr): create dir is already exists
+					//TODO(Jason): if create directory is already exists.
 					CreateDirectoryOptions options = CreateDirectoryOptions.defaults().setRecursive(true)
 							.setAllowExists(true).setMode(new Mode(permission.toShort()))
 							.setWriteType(WriteType.MUST_CACHE);
@@ -743,6 +750,14 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		}
 	}
 
+	/**
+	 * Client open file, if cache mode is enabled, it will check the alluxio space first,
+	 * and then through to hdfs space;
+	 * @param path path to open
+	 * @param bufferSize read bufferSize
+	 * @return FSDataInputStream
+	 * @throws IOException
+	 */
 	@Override
 	public FSDataInputStream open(Path path, int bufferSize) throws IOException {
 		LOG.debug("open: {} {}", path, bufferSize);
@@ -752,9 +767,9 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		}
 
 		if (MODE_CACHE_ENABLED) {
-			FileInStream fileInStream = null;
 			String mPath = HadoopUtils.getPathWithoutScheme(path);
 			AlluxioURI mUri = new AlluxioURI(mPath);
+
 			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 			boolean isInUserMustCacheList = mUserMustCacheList.inList(mPath);
 
@@ -765,12 +780,19 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 			try {
 				if (isExistsInAlluxio) {
-					//todo(cr): check options
+					//TODO(Jason): need to investigate the Open file opeartion;
 					OpenFileOptions options = OpenFileOptions.defaults().setReadType(ReadType.NO_CACHE);
-					fileInStream = mFileSystem.openFile(mUri, options);
+					FileInStream fileInStream = mFileSystem.openFile(mUri, options);
 					return new FSDataInputStream(fileInStream);
 				}
 			} catch (AlluxioException e) {
+				/**
+				 * It has 2 situation:
+				 * 1. file just in alluxio space, throw exception;
+				 * 2. file both in alluxio space and hdfs space, handle may have 2 ways:
+				 * 		1. throw exception;
+				 * 	  2. open file from hdfs;
+				 */
 				LOG.debug("Open file in Alluxio space failed.");
 				if (isInUserMustCacheList) {
 					throw new IOException(e);
@@ -787,6 +809,15 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		}
 	}
 
+	/**
+	 * Currently rename just support:
+	 * 1. both in Alluxio Space with UserMustCacheList or with the Same HDFS authority;
+	 * 2. both in HDFS with the same authority;
+	 * @param src src path to rename
+	 * @param dst dst path to rename
+	 * @return true if rename success in Alluxio or HDFS or both, otherwise, false
+	 * @throws IOException
+	 */
 	@Override
 	public boolean rename(Path src, Path dst) throws IOException {
 		LOG.debug("rename: {} {}", src, dst);
@@ -797,85 +828,76 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 		AlluxioURI srcUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(src));
 		AlluxioURI dstUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(dst));
+		boolean srcInAlluxio = isExistsInAlluxio(srcUri);
+		boolean dstInAlluxio = isExistsInAlluxio(dstUri);
+		boolean bothInAlluxio = srcInAlluxio && dstInAlluxio;
 
 		String mSrc = HadoopUtils.getPathWithoutScheme(src);
 		String mDst = HadoopUtils.getPathWithoutScheme(dst);
-
-		//todo(cr):
-		boolean srcInCacheList = mUserMustCacheList.inList(mSrc);
-		boolean dstInCacheList = mUserMustCacheList.inList(mDst);
-
-		if (MODE_CACHE_ENABLED) {
-			//src in userMustCacheList which stores in alluxio space, dst is not in alluxio space;
-			if (srcInCacheList && !dstInCacheList) {
-			//todo: alluxio worker write data to HDFS, and delete in alluxio space;
-				LOG.error("Currently does not support rename alluxio space to HDFS space.", src, dst);
-				return false;
-			}
-			//src in HDFS space, while dst is in userMustCacheList;
-			if (!srcInCacheList && dstInCacheList) {
-			//todo: hdfs load data to alluxio space and delete in HDFS space;
-				LOG.error("Currently doest not support rename hdfs space to alluxio space.", src, dst);
-				return false;
-			}
-			//src and dst in userMustCacheList both
-			if (srcInCacheList && dstInCacheList) {
-				try {
-					mFileSystem.rename(srcUri, dstUri);
-				} catch (FileNotFoundException e) {
-					LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
-					return false;
-				} catch (AlluxioException e) {
-					//todo(cr)
-					ensureExists(srcUri);
-					URIStatus dstStatus = null;
-					try {
-						dstStatus = mFileSystem.getStatus(dstUri);
-					} catch (IOException | AlluxioException e1) {
-						LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
-						return false;
-					}
-					//when dstpath is a path, move src path file to dstPath
-					//todo: need to make sure the alluxio operation
-					if (dstStatus != null && dstStatus.isFolder()) {
-						dstUri = dstUri.join(srcUri.getName());
-					} else {
-						LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
-						return false;
-					}
-					try {
-						mFileSystem.rename(srcUri, dstUri);
-					} catch (AlluxioException e2) {
-						LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
-						return false;
-					}
-				} catch (IOException e3) {
-					LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
-					return false;
-				}
-			}
-		}
-		//src and dst both in HDFS;
 		HdfsUfsInfo hdfsUfsInfoSrc = PathResolve(src);
 		HdfsUfsInfo hdfsUfsInfoDst = PathResolve(dst);
 		org.apache.hadoop.fs.FileSystem hdfsSrc = hdfsUfsInfoSrc.getHdfsUfs();
 		Path hdfsSrcPath = hdfsUfsInfoSrc.getHdfsPath();
 		org.apache.hadoop.fs.FileSystem hdfsDst = hdfsUfsInfoDst.getHdfsUfs();
 		Path hdfsDstPath = hdfsUfsInfoDst.getHdfsPath();
+		boolean isSameHDFSAuthority = hdfsSrcPath.toUri().getAuthority().equals(hdfsDstPath.toUri().getAuthority());
 
-		if (!((hdfsSrcPath.toUri().getAuthority().equals(hdfsDstPath.toUri().getAuthority())))) {
+
+		if (MODE_CACHE_ENABLED) {
+			//src in userMustCacheList which stores in alluxio space, dst is not in alluxio space;
+			if (!bothInAlluxio) {
+				/**
+				 * In this situation, it includes
+				 * 1. src in Alluxio Space, dst in HDFS Space;
+				 * 2. src in HDFS Space, dst in Alluxio Space;
+				 * TODO(Jason): the solution for situation
+				 * 1. Alluxio flush data to HDFS, and delete it in Alluxio after flush completed.
+				 * 2. HDFS load data to Alluxio Space, and delete it in HDFS after load completed.
+				 */
+				LOG.error("Currently doesnot support rename with different scheme");
+				return false;
+			}
+
+			if (bothInAlluxio) {
+
+				if (mUserMustCacheList.inList(mSrc) && mUserMustCacheList.inList(mDst)) {
+					try {
+						mFileSystem.rename(srcUri, dstUri);
+						return true;
+					} catch (AlluxioException e) {
+						throw new IOException(e);
+					}
+				}
+
+				if (isSameHDFSAuthority) {
+					try {
+						mFileSystem.rename(srcUri, dstUri);
+					} catch (FileNotFoundException e) {
+						LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
+						return false;
+					} catch (AlluxioException e) {
+						throw new IOException(e);
+					}
+				}
+				else{
+					LOG.error("Currently doesnot support rename path with different HDFS cluster");
+					return false;
+				}
+			}
+		}
+
+		if (!isSameHDFSAuthority) {
 			//todo: src and path in different HDFS cluster, create it in dst HDFS cluster,
-			//if success, delete in src hdfs cluster;
 			LOG.error("Currently doest support rename across different HDFS cluster", hdfsSrcPath, hdfsDstPath);
 			return false;
 		}
+
 		try {
 			return (hdfsSrc.rename(hdfsSrcPath, hdfsDstPath));
-		}catch (IOException e){
+		} catch (IOException e) {
 			LOG.error("rename src: {} to dst: {} failed in HDFS space", src, dst);
 			throw new IOException(e);
 		}
-		//todo: file in alluxio space both, while in different hdfs cluster;
 	}
 
 	/**
@@ -902,65 +924,59 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	}
 
 	private HdfsUfsInfo PathResolve(Path path) throws IOException {
+
 		LOG.debug("Path Resolve: {}", path);
-		try {
-			String mPath = HadoopUtils.getPathWithoutScheme(path);
-			String alluxioMountPoint = null;
-			String ufsMountPoint = null;
 
-			if(mMountPonitList == null){
+		String mPath = HadoopUtils.getPathWithoutScheme(path);
+		String alluxioMountPoint = null;
+		String ufsMountPoint = null;
+		URI hdfsUri = null;
+		boolean isFoundMountPoint = false;
+
+		if(mMountPonitList == null){
+			try {
 				mMountPonitList = mFileSystem.getMountPoint();
-				if(mMountPonitList == null){
-					LOG.error("MountTable without any mountPoint");
-					throw new IOException();
-				}
+			} catch (AlluxioException e) {
+				LOG.error("MountTable without any mountPoint");
+				throw new IOException();
 			}
+		}
 
-			boolean isFoundMountPoint = false;
-
+		try {
 			for (MountPairInfo mMountPointInfo : mMountPonitList) {
 				LOG.info("mPath: {}, mMountPointInfo: {}", mPath, mMountPointInfo.getAlluxioPath());
-				if(PathUtils.hasPrefix(mPath, mMountPointInfo.getAlluxioPath())){
+				if (PathUtils.hasPrefix(mPath, mMountPointInfo.getAlluxioPath())) {
 					isFoundMountPoint = true;
 					alluxioMountPoint = mMountPointInfo.getAlluxioPath();
 					ufsMountPoint = mMountPointInfo.getUfsPath();
 					break;
 				}
 			}
-
-			if(!isFoundMountPoint){
-				LOG.error("Cannot find MountPoint for path: {}, in MountTable: {}", path, mMountPonitList);
-				throw new IOException();
-			}
-
-			URI hdfsUri = new URI(ufsMountPoint);
-
-			conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cache", "true"));
-
-			String authority = hdfsUri.getAuthority();
-
-			org.apache.hadoop.fs.FileSystem hdfsUfs = null;
-
-			if (!hdfsFileSystemCache.isEmpty()) {
-				hdfsUfs = hdfsFileSystemCache.get(authority);
-				if(hdfsUfs == null){
-					hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri,conf);
-					hdfsFileSystemCache.put(authority,hdfsUfs);
-				}
-			}else{
-				hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri,conf);
-				hdfsFileSystemCache.put(authority,hdfsUfs);
-			}
-
-			String ufsPath = ufsMountPoint.concat(mPath.substring(alluxioMountPoint.length()));
-
-			LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
-			return new HdfsUfsInfo(ufsPath, hdfsUfs);
-		} catch (AlluxioException e) {
-			throw new IOException(e);
-		} catch (URISyntaxException e) {
+		} catch (InvalidPathException e){
+			LOG.error("InvalidPathException");
 			throw new IOException(e);
 		}
+
+		if(!isFoundMountPoint){
+			LOG.error("Cannot find MountPoint for path: {}, in MountTable: {}", path, mMountPonitList);
+			throw new IOException();
+		}
+
+		try {
+			hdfsUri = new URI(ufsMountPoint);
+		} catch (URISyntaxException e){
+			LOG.error("Construct URI, path: {}", ufsMountPoint);
+		}
+		String authority = hdfsUri.getAuthority();
+		org.apache.hadoop.fs.FileSystem hdfsUfs = hdfsFileSystemCache.get(authority);
+		if(hdfsUfs == null){
+			hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri,conf);
+			hdfsFileSystemCache.put(authority,hdfsUfs);
+		}
+		String ufsPath = ufsMountPoint.concat(mPath.substring(alluxioMountPoint.length()));
+
+		LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
+		return new HdfsUfsInfo(ufsPath, hdfsUfs);
 	}
 
 }
