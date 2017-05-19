@@ -69,7 +69,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 	private static final boolean MODE_CACHE_ENABLED =
 			Configuration.getBoolean(PropertyKey.USER_MODE_CACHE_ENABLED);
 	//To Store MountTable
-	private List<MountPairInfo> mMountPonitList = null;
+	private List<MountPairInfo> mMountPonitList = new ArrayList<>();
 	//Cache HDFS FileSystem
 	private HashMap<String, org.apache.hadoop.fs.FileSystem> hdfsFileSystemCache =
 			new HashMap<>();
@@ -875,34 +875,35 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			String mPath = HadoopUtils.getPathWithoutScheme(path);
 			String alluxioMountPoint = null;
 			String ufsMountPoint = null;
-			if(mMountPonitList == null){
+			if(mMountPonitList.isEmpty()){
 				mMountPonitList = mFileSystem.listMountPoint();
-			}
-			if(mMountPonitList == null){
-				LOG.error("MountTable without any mountPoint");
-				throw new IOException();
-			}else {
-				boolean isFoundMountPoint = false;
-				for (MountPairInfo mMountPointInfo : mMountPonitList) {
-					//mMountPointCache.put(mMountPointInfo.getAlluxioPath(),mMountPointInfo.getUfsPath());
-					if (mPath.startsWith(mMountPointInfo.getAlluxioPath())) {
-						isFoundMountPoint = true;
-						alluxioMountPoint = mMountPointInfo.getAlluxioPath();
-						ufsMountPoint = mMountPointInfo.getUfsPath();
-						break;
-					}
-				}
-				if(!isFoundMountPoint){
-					LOG.error("Cannot find MountPoint for path: {}, in MountTable: {}", path, mMountPonitList);
+				if(mMountPonitList.isEmpty()){
+					LOG.error("MountTable without any mountPoint");
 					throw new IOException();
 				}
 			}
+			boolean isFoundMountPoint = false;
+			for (MountPairInfo mMountPointInfo : mMountPonitList) {
+				//mMountPointCache.put(mMountPointInfo.getAlluxioPath(),mMountPointInfo.getUfsPath());
+				//if (mPath.startsWith(mMountPointInfo.getAlluxioPath())) {
+				if(mMountPointInfo.getAlluxioPath().startsWith(mPath)){
+					isFoundMountPoint = true;
+					alluxioMountPoint = mMountPointInfo.getAlluxioPath();
+					ufsMountPoint = mMountPointInfo.getUfsPath();
+					break;
+				}
+			}
+			if(!isFoundMountPoint){
+				LOG.error("Cannot find MountPoint for path: {}, in MountTable: {}", path, mMountPonitList);
+				throw new IOException();
+			}
+
 			URI hdfsUri = new URI(ufsMountPoint);
 
 			conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cache", "true"));
 			String authority = hdfsUri.getAuthority();
 			org.apache.hadoop.fs.FileSystem hdfsUfs = null;
-			if (hdfsFileSystemCache != null) {
+			if (hdfsFileSystemCache.isEmpty()) {
 				hdfsUfs = hdfsFileSystemCache.get(authority);
 				if(hdfsUfs == null){
 					hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri,conf);
@@ -914,7 +915,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			}
 
 			String ufsPath = ufsMountPoint.concat(mPath.substring(alluxioMountPoint.length()));
-			LOG.debug("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
+			LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
 			return new HdfsUfsInfo(ufsPath, hdfsUfs);
 		} catch (AlluxioException e) {
 			throw new IOException(e);
