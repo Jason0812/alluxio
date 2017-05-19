@@ -12,7 +12,9 @@
 package alluxio.master.file.meta;
 
 import alluxio.AlluxioURI;
+import alluxio.Configuration;
 import alluxio.Constants;
+import alluxio.PropertyKey;
 import alluxio.collections.ConcurrentHashSet;
 import alluxio.collections.FieldIndex;
 import alluxio.collections.IndexDefinition;
@@ -87,6 +89,9 @@ public class InodeTree implements JournalCheckpointStreamable {
      */
     WRITE_PARENT,
   }
+
+  private static final boolean LOAD_METADATA_FROM_UFS_ENABLED = Configuration.getBoolean(
+    PropertyKey.MASTER_LOAD_METADATA_FROM_UFS_ENABLED);
 
   private static final Logger LOG = LoggerFactory.getLogger(Constants.LOGGER_TYPE);
   /** Only the root inode should have the empty string as its name. */
@@ -630,16 +635,18 @@ public class InodeTree implements JournalCheckpointStreamable {
     // directories, because different ufs may have different semantics in the ACL permission of
     // those recursively created directories. Even if the directory already exists in the ufs,
     // we mark it as persisted.
-    for (Inode<?> inode : toPersistDirectories) {
-      //todo(Jason): remove it.
-      MountTable.Resolution resolution = mMountTable.resolve(getPath(inode));
-      String ufsUri = resolution.getUri().toString();
-      UnderFileSystem ufs = resolution.getUfs();
-      Permission permission = new Permission(inode.getOwner(), inode.getGroup(), inode.getMode());
-      MkdirsOptions mkdirsOptions = MkdirsOptions.defaults().setCreateParent(false)
+    if (LOAD_METADATA_FROM_UFS_ENABLED) {
+      for (Inode<?> inode : toPersistDirectories) {
+        //todo(Jason): remove it.
+        MountTable.Resolution resolution = mMountTable.resolve(getPath(inode));
+        String ufsUri = resolution.getUri().toString();
+        UnderFileSystem ufs = resolution.getUfs();
+        Permission permission = new Permission(inode.getOwner(), inode.getGroup(), inode.getMode());
+        MkdirsOptions mkdirsOptions = MkdirsOptions.defaults().setCreateParent(false)
           .setPermission(permission);
-      if (ufs.isDirectory(ufsUri) || ufs.mkdirs(ufsUri, mkdirsOptions)) {
-        inode.setPersistenceState(PersistenceState.PERSISTED);
+        if (ufs.isDirectory(ufsUri) || ufs.mkdirs(ufsUri, mkdirsOptions)) {
+          inode.setPersistenceState(PersistenceState.PERSISTED);
+        }
       }
     }
 
