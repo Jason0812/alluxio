@@ -59,7 +59,7 @@ import java.util.List;
  * to MODE(ROUTE_MODE & CACHE_MODE) and UserMustCacheList;
  * Use case: All path is mount from the UFS except root;
  */
-abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem {
+abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 	//public static final String FIRST_COM_PATH = "alluxio_dep/";
 	private static final Logger LOG = LoggerFactory.getLogger(Constants.LOGGER_TYPE);
 	// Always tell Hadoop that we have 3x replication.
@@ -95,12 +95,12 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 
 	private org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
 
-	AbstractFileSystemThrough() {
+	AbstractFileSystemProxy() {
 
 	}
 
 	@SuppressFBWarnings("ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD")
-	AbstractFileSystemThrough(FileSystem fileSystem) {
+	AbstractFileSystemProxy(FileSystem fileSystem) {
 		mFileSystem = fileSystem;
 		sInitialized = true;
 	}
