@@ -206,12 +206,12 @@ public final class FileSystemMasterClientServiceHandler implements
   }
 
   @Override
-  public List<MountPairInfo> listMountPoint() throws AlluxioTException{
+  public List<MountPairInfo> getMountPoint() throws AlluxioTException{
     return RpcUtils.call(new RpcCallable<List<MountPairInfo>>() {
       @Override
       public List<MountPairInfo> call() throws AlluxioException {
         List<MountPairInfo> result = new ArrayList<>();
-        for(alluxio.wire.MountPairInfo mountPairInfo: mFileSystemMaster.listMountPoint()){
+        for(alluxio.wire.MountPairInfo mountPairInfo: mFileSystemMaster.getMountPoint()){
           result.add(ThriftUtils.toThrift(mountPairInfo));
         }
         return result;
@@ -310,11 +310,11 @@ public final class FileSystemMasterClientServiceHandler implements
   }
 
   @Override
-  public MountPairInfo getUfsPathWithMountTable(final String path) throws AlluxioTException {
+  public MountPairInfo getMountPointWithPath(final String path) throws AlluxioTException {
     return RpcUtils.call(new RpcCallable<MountPairInfo>() {
       @Override
       public MountPairInfo call() throws AlluxioException {
-        return ThriftUtils.toThrift(mFileSystemMaster.getUfsPathWithMountTable(new AlluxioURI(path)));
+        return ThriftUtils.toThrift(mFileSystemMaster.getMountPointWithPath(new AlluxioURI(path)));
       }
     });
   }

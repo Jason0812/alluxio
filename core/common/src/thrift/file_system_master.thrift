@@ -290,14 +290,14 @@ service FileSystemMasterClientService extends common.AlluxioService {
   /**
   * Returns the mount pair info of diectory
   */
-  MountPairInfo getUfsPathWithMountTable(
+  MountPairInfo getMountPointWithPath(
     /** the path of the directory*/ 1: string path
     )throws(1: exception.AlluxioTException e)
 
     /**
     *get All Mount Point
     */
-    list<MountPairInfo> listMountPoint(
+    list<MountPairInfo> getMountPoint(
      )throws(1:exception.AlluxioTException e)
 
 }

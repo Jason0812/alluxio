@@ -909,7 +909,7 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 			String ufsMountPoint = null;
 
 			if(mMountPonitList == null){
-				mMountPonitList = mFileSystem.getMountTable();
+				mMountPonitList = mFileSystem.getMountPoint();
 				if(mMountPonitList == null){
 					LOG.error("MountTable without any mountPoint");
 					throw new IOException();
@@ -963,21 +963,4 @@ abstract class AbstractFileSystemThrough extends org.apache.hadoop.fs.FileSystem
 		}
 	}
 
-	public final class HdfsUfsInfo {
-		private final Path hdfsPath;
-		private final org.apache.hadoop.fs.FileSystem hdfsUfs;
-
-		public HdfsUfsInfo(String ufsPath, org.apache.hadoop.fs.FileSystem hdfsFs) {
-			hdfsPath = new Path(ufsPath);
-			hdfsUfs = hdfsFs;
-		}
-
-		public Path getHdfsPath() {
-			return hdfsPath;
-		}
-
-		public org.apache.hadoop.fs.FileSystem getHdfsUfs() {
-			return hdfsUfs;
-		}
-	}
 }

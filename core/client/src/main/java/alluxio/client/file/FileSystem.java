@@ -385,13 +385,13 @@ public interface FileSystem {
   void unmount(AlluxioURI path, UnmountOptions options) throws IOException, AlluxioException;
 
   /**
-   * Convenience method for{@link #getUfsPathWithMountTable(AlluxioURI)}
+   * Convenience method for{@link #getMountPointWithPath(AlluxioURI)}
    * @param path the path to obtain information about
    * @return the {@link MountPairInfo} of the file
    * @throws IOException if a non-alluxio exception occurs
    * @throws AlluxioException if an unexpected Alluxio exception its thrown
    */
-  MountPairInfo getUfsPathWithMountTable(AlluxioURI path) throws IOException,AlluxioException;
+  MountPairInfo getMountPointWithPath(AlluxioURI path) throws IOException,AlluxioException;
 
   /**
    * list all mount point
@@ -399,6 +399,6 @@ public interface FileSystem {
    * @throws IOException
    * @throws AlluxioException
    */
-  List<MountPairInfo> getMountTable() throws IOException, AlluxioException;
+  List<MountPairInfo> getMountPoint() throws IOException, AlluxioException;
 
 }

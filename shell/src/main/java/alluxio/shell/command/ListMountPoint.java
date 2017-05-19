@@ -20,8 +20,8 @@ public final class ListMountPoint extends AbstractShellCommand{
    * @throws AlluxioException
    * @throws IOException
    */
-  public void listMountPoint() throws AlluxioException,IOException{
-    for(MountPairInfo mountPairInfo: mFileSystem.getMountTable()){
+  public void ListMountPoint() throws AlluxioException,IOException{
+    for(MountPairInfo mountPairInfo: mFileSystem.getMountPoint()){
       System.out.println(mountPairInfo.getAlluxioPath() + " -> " + mountPairInfo.getUfsPath());
     }
   }
@@ -32,12 +32,12 @@ public final class ListMountPoint extends AbstractShellCommand{
 
   @Override
   public void run(CommandLine cl) throws AlluxioException, IOException{
-    listMountPoint();
+    ListMountPoint();
   }
 
   @Override
   public String getCommandName(){
-    return "getMountTable";
+    return "listMountPoint";
   }
 
   @Override
@@ -47,6 +47,6 @@ public final class ListMountPoint extends AbstractShellCommand{
 
   @Override
   public String getUsage(){
-    return "getMountTable";
+    return "listMountPoint";
   }
 }

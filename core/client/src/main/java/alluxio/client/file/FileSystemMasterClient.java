@@ -375,12 +375,12 @@ public final class FileSystemMasterClient extends AbstractMasterClient {
    *@throws IOException if an I/O error occurs
    * @throws AlluxioException, if an Alluxio error occurs
    */
-  public synchronized MountPairInfo getUfsPathWithMountTable(final AlluxioURI path)
+  public synchronized MountPairInfo getMountPointWithPath(final AlluxioURI path)
       throws IOException, AlluxioException {
     return retryRPC(new RpcCallableThrowsAlluxioTException<MountPairInfo>() {
       @Override
       public MountPairInfo call() throws AlluxioTException, TException {
-        return ThriftUtils.fromThrift(mClient.getUfsPathWithMountTable(path.getPath()));
+        return ThriftUtils.fromThrift(mClient.getMountPointWithPath(path.getPath()));
       }
     });
   }
@@ -391,12 +391,12 @@ public final class FileSystemMasterClient extends AbstractMasterClient {
    * @throws IOException
    * @throws AlluxioException
    */
-  public synchronized List<MountPairInfo> listMountPoint() throws IOException, AlluxioException{
+  public synchronized List<MountPairInfo> getMountPoint() throws IOException, AlluxioException{
     return retryRPC(new RpcCallableThrowsAlluxioTException<List<MountPairInfo>>() {
       @Override
       public List<MountPairInfo> call() throws AlluxioTException, TException {
         List<MountPairInfo> result = new ArrayList<>();
-        for (alluxio.thrift.MountPairInfo mountPairInfo : mClient.listMountPoint()) {
+        for (alluxio.thrift.MountPairInfo mountPairInfo : mClient.getMountPoint()) {
           result.add(ThriftUtils.fromThrift(mountPairInfo));
         }
         return result;

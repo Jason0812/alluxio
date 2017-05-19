@@ -2609,7 +2609,7 @@ public final class FileSystemMaster extends AbstractMaster {
    * @throws InvalidPathException if the file path is not valid
    * @throws AccessControlException if the permission checking fails
    */
-  public MountPairInfo getUfsPathWithMountTable(AlluxioURI path)
+  public MountPairInfo getMountPointWithPath(AlluxioURI path)
       throws InvalidPathException,AccessControlException {
     MountPairInfo mountPairInfo = new MountPairInfo();
     try (LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.READ)){
@@ -2624,7 +2624,7 @@ public final class FileSystemMaster extends AbstractMaster {
     return mountPairInfo;
   }
 
-  public List<MountPairInfo> listMountPoint() throws AlluxioException{
+  public List<MountPairInfo> getMountPoint() throws AlluxioException{
     List<MountPairInfo> result = new ArrayList<>();
     for(Map.Entry<String, MountInfo> entry: mMountTable.getMountTable().entrySet()){
       // System.out.println("Mount Table Info: "+ entry.getKey().toString()+ ", "+ entry.getValue().getUfsUri().toString());

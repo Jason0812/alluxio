@@ -235,10 +235,10 @@ public class BaseFileSystem implements FileSystem {
   }
 
   @Override
-  public List<MountPairInfo> getMountTable() throws IOException, AlluxioException{
+  public List<MountPairInfo> getMountPoint() throws IOException, AlluxioException{
     FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
     try{
-      return masterClient.listMountPoint();
+      return masterClient.getMountPoint();
     }catch(IOException e){
       throw e;
     }finally{
@@ -318,11 +318,11 @@ public class BaseFileSystem implements FileSystem {
     }
   }
   @Override
-  public MountPairInfo getUfsPathWithMountTable(AlluxioURI path)
+  public MountPairInfo getMountPointWithPath(AlluxioURI path)
       throws IOException,AlluxioException{
     FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
     try{
-      return masterClient.getUfsPathWithMountTable(path);
+      return masterClient.getMountPointWithPath(path);
     }catch(IOException e){
       e.printStackTrace();
       throw e;
