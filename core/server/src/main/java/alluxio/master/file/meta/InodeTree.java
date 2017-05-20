@@ -90,8 +90,6 @@ public class InodeTree implements JournalCheckpointStreamable {
     WRITE_PARENT,
   }
 
-  private static final boolean LOAD_METADATA_FROM_UFS_ENABLED = Configuration.getBoolean(
-    PropertyKey.MASTER_LOAD_METADATA_FROM_UFS_ENABLED);
 
   private static final Logger LOG = LoggerFactory.getLogger(Constants.LOGGER_TYPE);
   /** Only the root inode should have the empty string as its name. */
@@ -635,20 +633,20 @@ public class InodeTree implements JournalCheckpointStreamable {
     // directories, because different ufs may have different semantics in the ACL permission of
     // those recursively created directories. Even if the directory already exists in the ufs,
     // we mark it as persisted.
-    if (LOAD_METADATA_FROM_UFS_ENABLED) {
-      for (Inode<?> inode : toPersistDirectories) {
-        //todo(Jason): remove it.
-        MountTable.Resolution resolution = mMountTable.resolve(getPath(inode));
-        String ufsUri = resolution.getUri().toString();
-        UnderFileSystem ufs = resolution.getUfs();
-        Permission permission = new Permission(inode.getOwner(), inode.getGroup(), inode.getMode());
-        MkdirsOptions mkdirsOptions = MkdirsOptions.defaults().setCreateParent(false)
-          .setPermission(permission);
-        if (ufs.isDirectory(ufsUri) || ufs.mkdirs(ufsUri, mkdirsOptions)) {
-          inode.setPersistenceState(PersistenceState.PERSISTED);
-        }
+
+    for (Inode<?> inode : toPersistDirectories) {
+      //checked(jason): in our case, inode is not peristed always
+      MountTable.Resolution resolution = mMountTable.resolve(getPath(inode));
+      String ufsUri = resolution.getUri().toString();
+      UnderFileSystem ufs = resolution.getUfs();
+      Permission permission = new Permission(inode.getOwner(), inode.getGroup(), inode.getMode());
+      MkdirsOptions mkdirsOptions = MkdirsOptions.defaults().setCreateParent(false)
+        .setPermission(permission);
+      if (ufs.isDirectory(ufsUri) || ufs.mkdirs(ufsUri, mkdirsOptions)) {
+        inode.setPersistenceState(PersistenceState.PERSISTED);
       }
     }
+
 
     // Extend the inodePath with the created inodes.
     extensibleInodePath.getInodes().addAll(createdInodes);
