@@ -119,9 +119,19 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 
 			if (mUserMustCacheList.inList(mPath)){
-				LOG.error("append path: {} in UserMustCacheList: {}, " +
-						"Alluxio Space does not support append currently", path, mUserMustCacheList);
-				throw new IOException();
+				if(isExistsInAlluxio) {
+					LOG.error("append path: {} in UserMustCacheList: {}, " +
+							"Alluxio Space does not support append currently", path, mUserMustCacheList);
+					throw new IOException();
+				}else{
+					CreateFileOptions options = CreateFileOptions.defaults()
+							.setRecursive(true);
+					try {
+						mFileSystem.createFile(mUri, options);
+					} catch (AlluxioException e) {
+						throw new IOException(e);
+					}
+				}
 			}
 
 			if(isExistsInAlluxio){
