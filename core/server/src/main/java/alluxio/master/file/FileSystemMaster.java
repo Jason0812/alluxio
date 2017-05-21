@@ -698,18 +698,16 @@ public final class FileSystemMaster extends AbstractMaster {
      * How to handle this situation. (how to maintenance)
      * Enable the worker to load data auto ????
      */
-    if (LOAD_METADATA_FROM_UFS_ENABLED) {
-      MountTable.Resolution resolution;
-      try {
-        resolution = mMountTable.resolve(uri);
-      } catch (InvalidPathException e) {
-        throw new FileDoesNotExistException(e.getMessage(), e);
-      }
-      AlluxioURI resolvedUri = resolution.getUri();
-      // Only set the UFS path if the path is nested under a mount point.
-      if (!uri.equals(resolvedUri)) {
-        fileInfo.setUfsPath(resolvedUri.toString());
-      }
+    MountTable.Resolution resolution;
+    try {
+      resolution = mMountTable.resolve(uri);
+    } catch (InvalidPathException e) {
+      throw new FileDoesNotExistException(e.getMessage(), e);
+    }
+    AlluxioURI resolvedUri = resolution.getUri();
+    // Only set the UFS path if the path is nested under a mount point.
+    if (!uri.equals(resolvedUri)) {
+      fileInfo.setUfsPath(resolvedUri.toString());
     }
 
     Metrics.FILE_INFOS_GOT.inc();
