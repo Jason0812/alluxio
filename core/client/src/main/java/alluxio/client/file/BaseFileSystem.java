@@ -16,6 +16,7 @@ import alluxio.Constants;
 import alluxio.annotation.PublicApi;
 import alluxio.client.file.options.*;
 import alluxio.exception.*;
+import alluxio.wire.FileInfo;
 import alluxio.wire.MountPairInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -331,4 +332,16 @@ public class BaseFileSystem implements FileSystem {
     }
   }
 
+  @Override
+  public URIStatus getStatusForUfsLoad(AlluxioURI path)
+    throws FileDoesNotExistException, IOException, AlluxioException {
+    FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
+    try {
+      return masterClient.getStatusForUfsLoad(path);
+    } catch (FileDoesNotExistException | InvalidPathException e) {
+      throw new FileDoesNotExistException(ExceptionMessage.PATH_DOES_NOT_EXIST.getMessage(path));
+    } finally {
+      mFileSystemContext.releaseMasterClient(masterClient);
+    }
+  }
 }

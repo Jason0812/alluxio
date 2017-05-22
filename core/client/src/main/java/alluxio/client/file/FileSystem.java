@@ -401,4 +401,6 @@ public interface FileSystem {
    */
   List<MountPairInfo> getMountPoint() throws IOException, AlluxioException;
 
+  URIStatus getStatusForUfsLoad(AlluxioURI path) throws IOException, AlluxioException;
+
 }

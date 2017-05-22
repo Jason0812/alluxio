@@ -61,7 +61,7 @@ public final class LoadCommand extends WithWildCardPathCommand {
    * @throws IOException when non-Alluxio exception occurs
    */
   private void load(AlluxioURI filePath) throws AlluxioException, IOException {
-    URIStatus status = mFileSystem.getStatus(filePath);
+    URIStatus status = mFileSystem.getStatusForUfsLoad(filePath);
     if (status.isFolder()) {
       List<URIStatus> statuses = mFileSystem.listStatus(filePath);
       for (URIStatus uriStatus : statuses) {

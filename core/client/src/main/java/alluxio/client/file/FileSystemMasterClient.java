@@ -403,4 +403,13 @@ public final class FileSystemMasterClient extends AbstractMasterClient {
       }
     });
   }
+
+  public synchronized  URIStatus getStatusForUfsLoad(final AlluxioURI path) throws IOException, AlluxioException{
+    return retryRPC(new RpcCallableThrowsAlluxioTException<URIStatus>() {
+      @Override
+      public URIStatus call() throws AlluxioTException, TException {
+        return new URIStatus(ThriftUtils.fromThrift(mClient.getStatusForUfsLoad(path.getPath())));
+      }
+    });
+  }
 }

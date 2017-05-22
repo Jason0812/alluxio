@@ -157,6 +157,15 @@ public final class FileSystemMasterClientServiceHandler implements
     });
   }
 
+  @Override
+  public FileInfo getStatusForUfsLoad(final String path) throws AlluxioTException {
+    return RpcUtils.call(new RpcCallable<FileInfo>() {
+      @Override
+      public FileInfo call() throws AlluxioException {
+        return ThriftUtils.toThrift(mFileSystemMaster.getFileInfo(new AlluxioURI(path),true));
+      }
+    });
+  }
   /**
    * {@inheritDoc}
    *
