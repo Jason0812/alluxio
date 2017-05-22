@@ -171,6 +171,11 @@ public final class FileSystemMaster extends AbstractMaster {
   /** The handler for async persistence. */
   private final AsyncPersistHandler mAsyncPersistHandler;
 
+  /** whether through to Ufs to operate metadata and block data */
+  private static final boolean LOAD_METADATA_FROM_UFS_ENABLED = Configuration.getBoolean(
+    PropertyKey.MASTER_LOAD_METADATA_FROM_UFS_ENABLED);
+
+
   /**
    * The service that checks for inode files with ttl set. We store it here so that it can be
    * accessed from tests.
@@ -266,6 +271,10 @@ public final class FileSystemMaster extends AbstractMaster {
         throw new RuntimeException(e);
       }
     } else if (entry.hasPersistDirectory()) {
+      /**
+       * comment(Jason): isPersisted means: the path is load from ufs; should replay after
+       * master restart;
+       */
         PersistDirectoryEntry typedEntry = entry.getPersistDirectory();
         try (LockedInodePath inodePath = mInodeTree.lockFullInodePath(typedEntry.getId(),
             InodeTree.LockMode.WRITE)) {
@@ -668,6 +677,15 @@ public final class FileSystemMaster extends AbstractMaster {
     }
   }
 
+  /**
+   * Added for load ufs path
+   * @param path
+   * @param isLoadFromUfs
+   * @return
+   * @throws FileDoesNotExistException
+   * @throws InvalidPathException
+   * @throws AccessControlException
+   */
   public FileInfo getFileInfo(AlluxioURI path, boolean isLoadFromUfs)
     throws FileDoesNotExistException, InvalidPathException, AccessControlException {
     Metrics.GET_FILE_INFO_OPS.inc();
@@ -880,7 +898,6 @@ public final class FileSystemMaster extends AbstractMaster {
    * @throws FileDoesNotExistException if the path cannot be found in the Alluxio inode tree
    * @throws InvalidPathException if the path is not well formed
    */
-  //TODO(Jason): in our case, cause doesnot load data from ufs auto, data is always consistent
   private boolean checkConsistencyInternal(Inode inode, AlluxioURI path)
       throws FileDoesNotExistException, InvalidPathException, IOException {
     MountTable.Resolution resolution = mMountTable.resolve(path);
@@ -1010,7 +1027,7 @@ public final class FileSystemMaster extends AbstractMaster {
     inode.setLastModificationTimeMs(opTimeMs);
     inode.complete(length);
 
-    //TODO(Jason): should handler commitBlockInUFS
+    //todo(jason): should test this when load data from ufs;
     if (inode.isPersisted()) {
       // Commit all the file blocks (without locations) so the metadata for the block exists.
       long currLength = length;
@@ -1361,7 +1378,7 @@ public final class FileSystemMaster extends AbstractMaster {
 
         // TODO(jiri): What should the Alluxio behavior be when a UFS delete operation fails?
         // Currently, it will result in an inconsistency between Alluxio and UFS.
-        if (!replayed && delInode.isPersisted()) {
+        if (!replayed && delInode.isPersisted() && LOAD_METADATA_FROM_UFS_ENABLED) {
           try {
             // If this is a mount point, we have deleted all the children and can unmount it
             // TODO(calvin): Add tests (ALLUXIO-1831)
@@ -1832,10 +1849,11 @@ public final class FileSystemMaster extends AbstractMaster {
     // Now we remove srcInode from its parent and insert it into dstPath's parent
     long opTimeMs = System.currentTimeMillis();
     renameInternal(srcInodePath, dstInodePath, false, opTimeMs);
-
-    List<Inode<?>> persistedInodes = propagatePersistedInternal(srcInodePath, false);
-    journalPersistedInodes(persistedInodes);
-
+    //todo(jason): which iNode should be persisted is determined in Proxy;
+    if(LOAD_METADATA_FROM_UFS_ENABLED) {
+      List<Inode<?>> persistedInodes = propagatePersistedInternal(srcInodePath, false);
+      journalPersistedInodes(persistedInodes);
+    }
     RenameEntry rename = RenameEntry.newBuilder()
         .setId(srcInode.getId())
         .setDstPath(dstInodePath.getUri().getPath())
@@ -1892,10 +1910,10 @@ public final class FileSystemMaster extends AbstractMaster {
 
     // 3. Do UFS operations if necessary.
     // If the source file is persisted, rename it in the UFS.
-    //TODO(Jason): add test.
+    //TODO(Jason): rename operation coordinate move to proxy;
 
     try {
-      if (!replayed && srcInode.isPersisted()) {
+      if (!replayed && srcInode.isPersisted() && LOAD_METADATA_FROM_UFS_ENABLED) {
         MountTable.Resolution resolution = mMountTable.resolve(srcPath);
 
         String ufsSrcPath = resolution.getUri().toString();
@@ -2342,6 +2360,8 @@ public final class FileSystemMaster extends AbstractMaster {
     long ufsBlockSizeByte = ufs.getBlockSizeByte(ufsUri.toString());
     long ufsLength = ufs.getFileSize(ufsUri.toString());
     // Metadata loaded from UFS has no TTL set.
+    //todo: isPersisted determins where to get the block data after failed from Alluxio Space;
+    //when delete in Alluxio Space for free space and master heap, while not delete in ufs space;
     CreateFileOptions createFileOptions =
         CreateFileOptions.defaults().setBlockSizeBytes(ufsBlockSizeByte)
             .setRecursive(options.isCreateAncestors()).setMetadataLoad(true).setPersisted(true);
@@ -2982,7 +3002,7 @@ public final class FileSystemMaster extends AbstractMaster {
       // TODO(manugoyal) figure out valid behavior in the un-persist case
       Preconditions.checkArgument(options.getPersisted(),
           PreconditionMessage.ERR_SET_STATE_UNPERSIST);
-      if (!file.isPersisted()) {
+      if (!file.isPersisted() && LOAD_METADATA_FROM_UFS_ENABLED) {
         file.setPersistenceState(PersistenceState.PERSISTED);
         persistedInodes = propagatePersistedInternal(inodePath, false);
         file.setLastModificationTimeMs(opTimeMs);
@@ -2994,8 +3014,8 @@ public final class FileSystemMaster extends AbstractMaster {
     // If the file is persisted in UFS, also update corresponding owner/group/permission.
 
     //checked(jason): in our case, inode is not peristed always
-
-    if ((ownerGroupChanged || modeChanged) && !replayed && inode.isPersisted()) {
+    //todo(jason): setAttr coordinate is in Proxy
+    if ((ownerGroupChanged || modeChanged) && !replayed && inode.isPersisted() && LOAD_METADATA_FROM_UFS_ENABLED) {
       if ((inode instanceof InodeFile) && !((InodeFile) inode).isCompleted()) {
         LOG.debug("Alluxio does not propagate chown/chgrp/chmod to UFS for incomplete files.");
       } else {
