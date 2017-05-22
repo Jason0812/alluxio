@@ -32,20 +32,20 @@ import alluxio.master.file.options.CreateFileOptions;
 import alluxio.master.file.options.CreatePathOptions;
 import alluxio.master.journal.JournalCheckpointStreamable;
 import alluxio.master.journal.JournalOutputStream;
-import alluxio.proto.journal.File.InodeFileEntry;
 import alluxio.proto.journal.File.InodeDirectoryEntry;
+import alluxio.proto.journal.File.InodeFileEntry;
 import alluxio.security.authorization.Permission;
 import alluxio.underfs.UnderFileSystem;
 import alluxio.underfs.options.MkdirsOptions;
 import alluxio.util.SecurityUtils;
 import alluxio.util.io.PathUtils;
 import alluxio.wire.TtlAction;
-
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -53,8 +53,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 /**
  * Represents the tree of Inode's.
@@ -96,6 +94,9 @@ public class InodeTree implements JournalCheckpointStreamable {
   private static final String ROOT_INODE_NAME = "";
   /** Number of retries when trying to lock a path, from a given id. */
   private static final int PATH_TRAVERSAL_RETRIES = 1000;
+
+  private static final boolean LOAD_METADATA_FROM_UFS_ENABLED = Configuration.getBoolean(
+      PropertyKey.MASTER_LOAD_METADATA_FROM_UFS_ENABLED);
 
   /** The root of the entire file system. */
   private InodeDirectory mRoot = null;
@@ -634,16 +635,18 @@ public class InodeTree implements JournalCheckpointStreamable {
     // those recursively created directories. Even if the directory already exists in the ufs,
     // we mark it as persisted.
 
-    for (Inode<?> inode : toPersistDirectories) {
-      //checked(jason): in our case, inode is not peristed always
-      MountTable.Resolution resolution = mMountTable.resolve(getPath(inode));
-      String ufsUri = resolution.getUri().toString();
-      UnderFileSystem ufs = resolution.getUfs();
-      Permission permission = new Permission(inode.getOwner(), inode.getGroup(), inode.getMode());
-      MkdirsOptions mkdirsOptions = MkdirsOptions.defaults().setCreateParent(false)
-        .setPermission(permission);
-      if (ufs.isDirectory(ufsUri) || ufs.mkdirs(ufsUri, mkdirsOptions)) {
-        inode.setPersistenceState(PersistenceState.PERSISTED);
+    if (LOAD_METADATA_FROM_UFS_ENABLED) {
+      for (Inode<?> inode : toPersistDirectories) {
+        //todo(Jason): remove it.
+        MountTable.Resolution resolution = mMountTable.resolve(getPath(inode));
+        String ufsUri = resolution.getUri().toString();
+        UnderFileSystem ufs = resolution.getUfs();
+        Permission permission = new Permission(inode.getOwner(), inode.getGroup(), inode.getMode());
+        MkdirsOptions mkdirsOptions = MkdirsOptions.defaults().setCreateParent(false)
+            .setPermission(permission);
+        if (ufs.isDirectory(ufsUri) || ufs.mkdirs(ufsUri, mkdirsOptions)) {
+          inode.setPersistenceState(PersistenceState.PERSISTED);
+        }
       }
     }
 

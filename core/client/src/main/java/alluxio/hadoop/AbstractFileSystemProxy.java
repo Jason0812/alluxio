@@ -954,10 +954,11 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 		try {
 			for (MountPairInfo mMountPointInfo : mMountPonitList) {
-				LOG.info("mPath: {}, mMountPointInfo: {}", mPath, mMountPointInfo.getAlluxioPath());
-				if (PathUtils.hasPrefix(mPath, mMountPointInfo.getAlluxioPath())) {
+				String alluxioPath = mMountPointInfo.getAlluxioPath();
+				if (!alluxioPath.equals("/") && PathUtils.hasPrefix(mPath, alluxioPath)) {
+					LOG.info("Enter it.");
 					isFoundMountPoint = true;
-					alluxioMountPoint = mMountPointInfo.getAlluxioPath();
+					alluxioMountPoint = alluxioPath;
 					ufsMountPoint = mMountPointInfo.getUfsPath();
 					break;
 				}
@@ -983,6 +984,11 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri,conf);
 			hdfsFileSystemCache.put(authority,hdfsUfs);
 		}
+
+		if(!ufsMountPoint.endsWith("/")){
+			ufsMountPoint = ufsMountPoint.concat("/");
+		}
+
 		String ufsPath = ufsMountPoint.concat(mPath.substring(alluxioMountPoint.length()));
 
 		LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
