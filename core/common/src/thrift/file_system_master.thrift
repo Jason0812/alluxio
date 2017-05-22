@@ -182,6 +182,13 @@ service FileSystemMasterClientService extends common.AlluxioService {
     /** the path of the file or directory */ 1: string path,
     )
     throws (1: exception.AlluxioTException e)
+	
+	/** 
+	* Returns the status of the file or directory.
+	*/
+	FileInfo getStatusForUfsLoad(
+	/** the path of the file or directory */ 1: string path,
+	) throws (1: exception.AlluxioTException e)
 
   /**
    * Returns the status of the file or directory, only used internally by servers.

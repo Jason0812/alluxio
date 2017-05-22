@@ -11,6 +11,8 @@
 
 package alluxio.master.file.options;
 
+import alluxio.Configuration;
+import alluxio.PropertyKey;
 import alluxio.underfs.UnderFileStatus;
 
 import com.google.common.base.Objects;
@@ -22,9 +24,12 @@ import javax.annotation.concurrent.NotThreadSafe;
  */
 @NotThreadSafe
 public final class LoadMetadataOptions {
+  private static final boolean LOAD_METADATA_FROM_UFS_ENABLED =
+      Configuration.getBoolean(PropertyKey.MASTER_LOAD_METADATA_FROM_UFS_ENABLED);
   private boolean mCreateAncestors;
   private boolean mLoadDirectChildren;
   private UnderFileStatus mUnderFileStatus;
+  private boolean mLoadFromUfs;
 
   /**
    * @return the default {@link LoadMetadataOptions}
@@ -36,6 +41,7 @@ public final class LoadMetadataOptions {
   private LoadMetadataOptions() {
     mCreateAncestors = false;
     mLoadDirectChildren = false;
+    mLoadFromUfs = LOAD_METADATA_FROM_UFS_ENABLED;
     mUnderFileStatus = null;
   }
 
@@ -62,6 +68,7 @@ public final class LoadMetadataOptions {
     return mLoadDirectChildren;
   }
 
+  public boolean isLoadFromUfs() { return mLoadFromUfs; }
   /**
    * Sets the recursive flag.
    *
@@ -94,6 +101,11 @@ public final class LoadMetadataOptions {
    */
   public LoadMetadataOptions setUnderFileStatus(UnderFileStatus status) {
     mUnderFileStatus = status;
+    return this;
+  }
+
+  public LoadMetadataOptions setLoadFromUfs(boolean loadFromUfs){
+    mLoadFromUfs = loadFromUfs;
     return this;
   }
 
