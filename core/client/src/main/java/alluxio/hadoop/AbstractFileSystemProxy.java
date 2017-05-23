@@ -838,9 +838,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 		AlluxioURI srcUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(src));
 		AlluxioURI dstUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(dst));
-		boolean srcInAlluxio = isExistsInAlluxio(srcUri);
-		boolean dstInAlluxio = isExistsInAlluxio(dstUri);
-		boolean bothInAlluxio = srcInAlluxio && dstInAlluxio;
 
 		String mSrc = HadoopUtils.getPathWithoutScheme(src);
 		String mDst = HadoopUtils.getPathWithoutScheme(dst);
@@ -852,54 +849,43 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		Path hdfsDstPath = hdfsUfsInfoDst.getHdfsPath();
 		boolean isSameHDFSAuthority = hdfsSrcPath.toUri().getAuthority().equals(hdfsDstPath.toUri().getAuthority());
 
+		boolean srcInList = mUserMustCacheList.inList(mSrc);
+		boolean dstInList = mUserMustCacheList.inList(mDst);
 
 		if (MODE_CACHE_ENABLED) {
-			//src in userMustCacheList which stores in alluxio space, dst is not in alluxio space;
-			if (!bothInAlluxio) {
-				/**
-				 * In this situation, it includes
-				 * 1. src in Alluxio Space, dst in HDFS Space;
-				 * 2. src in HDFS Space, dst in Alluxio Space;
-				 * TODO(Jason): the solution for situation
-				 * 1. Alluxio flush data to HDFS, and delete it in Alluxio after flush completed.
-				 * 2. HDFS load data to Alluxio Space, and delete it in HDFS after load completed.
-				 */
-				LOG.error("Currently doesnot support rename with different scheme");
-				return false;
+			if (srcInList && dstInList) {
+				try {
+					mFileSystem.rename(srcUri, dstUri);
+					return true;
+				} catch (AlluxioException e) {
+					throw new IOException(e);
+				}
 			}
 
-			if (bothInAlluxio) {
+			if(srcInList || dstInList){
+				LOG.error("Currently doesnot support rename");
+				throw new IOException();
+			}
 
-				if (mUserMustCacheList.inList(mSrc) && mUserMustCacheList.inList(mDst)) {
-					try {
-						mFileSystem.rename(srcUri, dstUri);
-						return true;
-					} catch (AlluxioException e) {
-						throw new IOException(e);
-					}
+			if (isSameHDFSAuthority) {
+				try {
+					mFileSystem.rename(srcUri, dstUri);
+				} catch (FileNotFoundException e) {
+					LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
+				} catch (AlluxioException e) {
+					throw new IOException(e);
 				}
-
-				if (isSameHDFSAuthority) {
-					try {
-						mFileSystem.rename(srcUri, dstUri);
-					} catch (FileNotFoundException e) {
-						LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
-						return false;
-					} catch (AlluxioException e) {
-						throw new IOException(e);
-					}
-				}
-				else{
-					LOG.error("Currently doesnot support rename path with different HDFS cluster");
-					return false;
-				}
+			}
+			else{
+				LOG.error("Currently doesnot support rename path with different HDFS cluster");
+				return false;
 			}
 		}
 
 		if (!isSameHDFSAuthority) {
 			//todo: src and path in different HDFS cluster, create it in dst HDFS cluster,
 			LOG.error("Currently doest support rename across different HDFS cluster", hdfsSrcPath, hdfsDstPath);
-			return false;
+			throw new IOException();
 		}
 
 		try {
