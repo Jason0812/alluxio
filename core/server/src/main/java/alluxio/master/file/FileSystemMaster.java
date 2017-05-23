@@ -1849,11 +1849,9 @@ public final class FileSystemMaster extends AbstractMaster {
     // Now we remove srcInode from its parent and insert it into dstPath's parent
     long opTimeMs = System.currentTimeMillis();
     renameInternal(srcInodePath, dstInodePath, false, opTimeMs);
-    //todo(jason): which iNode should be persisted is determined in Proxy;
-    if(LOAD_METADATA_FROM_UFS_ENABLED) {
-      List<Inode<?>> persistedInodes = propagatePersistedInternal(srcInodePath, false);
-      journalPersistedInodes(persistedInodes);
-    }
+
+    List<Inode<?>> persistedInodes = propagatePersistedInternal(srcInodePath, false);
+    journalPersistedInodes(persistedInodes);
     RenameEntry rename = RenameEntry.newBuilder()
         .setId(srcInode.getId())
         .setDstPath(dstInodePath.getUri().getPath())
@@ -1898,15 +1896,12 @@ public final class FileSystemMaster extends AbstractMaster {
     srcInode.setParentId(dstParentInode.getId());
 
     // 2. Insert the source inode into the destination parent.
-    //check(jason): this logic is not reasonable according to HDFS
-    /**
     if (!dstParentInode.addChild(srcInode)) {
       // On failure, revert changes and throw exception.
       srcInode.setName(srcName);
       srcInode.setParentId(srcParentInode.getId());
       throw new InvalidPathException("Destination path: " + dstPath + " already exists.");
     }
-     */
 
     // 3. Do UFS operations if necessary.
     // If the source file is persisted, rename it in the UFS.
@@ -3002,7 +2997,7 @@ public final class FileSystemMaster extends AbstractMaster {
       // TODO(manugoyal) figure out valid behavior in the un-persist case
       Preconditions.checkArgument(options.getPersisted(),
           PreconditionMessage.ERR_SET_STATE_UNPERSIST);
-      if (!file.isPersisted() && LOAD_METADATA_FROM_UFS_ENABLED) {
+      if (!file.isPersisted()) {
         file.setPersistenceState(PersistenceState.PERSISTED);
         persistedInodes = propagatePersistedInternal(inodePath, false);
         file.setLastModificationTimeMs(opTimeMs);
