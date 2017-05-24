@@ -24,7 +24,6 @@ import alluxio.exception.AlluxioException;
 import alluxio.exception.ExceptionMessage;
 import alluxio.exception.FileDoesNotExistException;
 import alluxio.util.io.BufferUtils;
-
 import com.google.common.primitives.Ints;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem.Statistics;
@@ -34,12 +33,11 @@ import org.apache.hadoop.fs.Seekable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.concurrent.NotThreadSafe;
 import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 /**
  * An input stream for reading a file from HDFS.
@@ -89,7 +87,9 @@ public class HdfsFileInputStream extends InputStream implements Seekable, Positi
     mHadoopBufferSize = bufferSize;
     mStatistics = stats;
     try {
-      mFileInfo = fs.getStatus(uri);
+      //mFileInfo = fs.getStatus(uri);
+      //todo(jason): test;
+      mFileInfo = fs.getStatusForUfsLoad(uri);
       mHdfsPath = new Path(mFileInfo.getUfsPath());
       mAlluxioFileInputStream = fs.openFile(uri, OpenFileOptions.defaults());
     } catch (FileDoesNotExistException e) {
