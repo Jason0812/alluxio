@@ -355,7 +355,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 						new FsPermission((short) fileStatus.getMode()), fileStatus.getOwner(), fileStatus.getGroup(),
 						new Path(mAlluxioHeader + mUri));
 				} catch (FileDoesNotExistException e) {
-					//LOG.error("FileDoesNotExistException. path: {}", path);
 					throw new FileNotFoundException("FileNotFound");
 				} catch (AlluxioException e1) {
 					LOG.error("getStatus from Alluxio Space failed. path: {}", path);
@@ -770,7 +769,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 			boolean isInUserMustCacheList = mUserMustCacheList.inList(mPath);
 			if (isExistsInAlluxio) {
-				OpenFileOptions options = OpenFileOptions.defaults().setReadType(ReadType.NO_CACHE);
+				//OpenFileOptions options = OpenFileOptions.defaults().setReadType(ReadType.NO_CACHE);
 				return new FSDataInputStream(new HdfsFileInputStream(mContext, mUri,conf,bufferSize,mStatistics));
 			}
 			if(isInUserMustCacheList){
