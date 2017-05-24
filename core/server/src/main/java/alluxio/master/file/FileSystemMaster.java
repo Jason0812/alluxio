@@ -237,8 +237,7 @@ public final class FileSystemMaster extends AbstractMaster {
     PropertyKey.MASTER_LOAD_METADATA_FROM_UFS_ENABLED);
 
   /**UserMustCacheList stores in Master, easy to management */
-  private List<String> mUserMustCacheList = Configuration.getList(PropertyKey.USER_MUSTCACHELIST,",");
-
+  private List<String> mUserMustCacheList;
 
   /**
    * The service that checks for inode files with ttl set. We store it here so that it can be
@@ -286,7 +285,7 @@ public final class FileSystemMaster extends AbstractMaster {
 
     // TODO(gene): Handle default config value for whitelist.
     mWhitelist = new PrefixList(Configuration.getList(PropertyKey.MASTER_WHITELIST, ","));
-
+    mUserMustCacheList = Configuration.getList(PropertyKey.USER_MUSTCACHELIST, ",");
     mAsyncPersistHandler = AsyncPersistHandler.Factory.create(new FileSystemMasterView(this));
     mPermissionChecker = new PermissionChecker(mInodeTree);
 
@@ -864,7 +863,8 @@ public final class FileSystemMaster extends AbstractMaster {
 
       LoadMetadataOptions loadMetadataOptions =
           LoadMetadataOptions.defaults().setCreateAncestors(true).setLoadDirectChildren(
-              listStatusOptions.getLoadMetadataType() != LoadMetadataType.Never);
+              listStatusOptions.getLoadMetadataType() != LoadMetadataType.Never)
+          .setLoadFromUfs(listStatusOptions.isLoadFromUfs());
 
       if (inodePath.fullPathExists()) {
         inode = inodePath.getInode();
@@ -2242,6 +2242,7 @@ public final class FileSystemMaster extends AbstractMaster {
    * refresh UserMustCacheList;
    */
   public void refreshUserMustCacheList(){
+    Configuration.defaultInit();
     mUserMustCacheList = Configuration.getList(PropertyKey.USER_MUSTCACHELIST,",");
   }
 
@@ -2387,7 +2388,8 @@ public final class FileSystemMaster extends AbstractMaster {
             TempInodePathForChild tempInodePath =
                 new TempInodePathForChild(inodePath, file.getName());
             LoadMetadataOptions loadMetadataOptions = LoadMetadataOptions.defaults()
-                .setLoadDirectChildren(false).setCreateAncestors(false).setUnderFileStatus(file);
+                .setLoadDirectChildren(false).setCreateAncestors(false).setUnderFileStatus(file)
+                .setLoadFromUfs(options.isLoadFromUfs());
             counter = loadMetadataAndJournal(tempInodePath, loadMetadataOptions);
           }
           inode.setDirectChildrenLoaded(true);

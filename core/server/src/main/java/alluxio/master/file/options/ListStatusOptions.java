@@ -24,6 +24,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 @NotThreadSafe
 public final class ListStatusOptions {
   private LoadMetadataType mLoadMetadataType;
+  private boolean mLoadFromUfs;
 
   /**
    * @return the default {@link ListStatusOptions}
@@ -34,6 +35,7 @@ public final class ListStatusOptions {
 
   private ListStatusOptions() {
     mLoadMetadataType = LoadMetadataType.Once;
+    mLoadFromUfs = false;
   }
 
   /**
@@ -48,6 +50,7 @@ public final class ListStatusOptions {
     } else if (!options.isLoadDirectChildren()) {
       mLoadMetadataType = LoadMetadataType.Never;
     }
+    mLoadFromUfs = options.isLoadFromUfs();
   }
 
   /**
@@ -91,5 +94,14 @@ public final class ListStatusOptions {
     return Objects.toStringHelper(this)
         .add("loadMetadataType", mLoadMetadataType.toString())
         .toString();
+  }
+
+  public boolean isLoadFromUfs() {
+    return mLoadFromUfs;
+  }
+
+  public ListStatusOptions setLoadFromUfs(boolean mLoadFromUfs) {
+    this.mLoadFromUfs = mLoadFromUfs;
+    return this;
   }
 }

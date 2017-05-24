@@ -17,16 +17,15 @@ import alluxio.client.ReadType;
 import alluxio.client.file.FileInStream;
 import alluxio.client.file.FileSystem;
 import alluxio.client.file.URIStatus;
+import alluxio.client.file.options.ListStatusOptions;
 import alluxio.client.file.options.OpenFileOptions;
 import alluxio.exception.AlluxioException;
-
 import com.google.common.io.Closer;
 import org.apache.commons.cli.CommandLine;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 import java.util.List;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Loads a file or directory in Alluxio space, makes it resident in memory.
@@ -63,7 +62,8 @@ public final class LoadCommand extends WithWildCardPathCommand {
   private void load(AlluxioURI filePath) throws AlluxioException, IOException {
     URIStatus status = mFileSystem.getStatusForUfsLoad(filePath);
     if (status.isFolder()) {
-      List<URIStatus> statuses = mFileSystem.listStatus(filePath);
+      List<URIStatus> statuses = mFileSystem.listStatus(filePath,
+          ListStatusOptions.defaults().setLoadFromUfs(true));
       for (URIStatus uriStatus : statuses) {
         AlluxioURI newPath = new AlluxioURI(uriStatus.getPath());
         load(newPath);

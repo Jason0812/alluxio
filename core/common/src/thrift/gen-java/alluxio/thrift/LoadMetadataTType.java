@@ -7,6 +7,10 @@
 package alluxio.thrift;
 
 
+import java.util.Map;
+import java.util.HashMap;
+import org.apache.thrift.TEnum;
+
 public enum LoadMetadataTType implements org.apache.thrift.TEnum {
   Never(0),
   Once(1),

@@ -87,7 +87,7 @@ public class HdfsFileInputStream extends InputStream implements Seekable, Positi
     mHadoopBufferSize = bufferSize;
     mStatistics = stats;
     try {
-      mFileInfo = fs.getStatusForUfsLoad(uri);
+      mFileInfo = fs.getStatus(uri);
       mHdfsPath = new Path(mFileInfo.getUfsPath());
       mAlluxioFileInputStream = fs.openFile(uri, OpenFileOptions.defaults());
     } catch (FileDoesNotExistException e) {

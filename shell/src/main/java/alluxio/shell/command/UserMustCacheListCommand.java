@@ -16,7 +16,7 @@ public final class UserMustCacheListCommand extends AbstractShellCommand{
 
 	@Override
 	public String getCommandName() {
-		return "userMustCacheList";
+		return "MCL";
 	}
 
 	@Override
@@ -51,13 +51,13 @@ public final class UserMustCacheListCommand extends AbstractShellCommand{
 
 	@Override
 	public String getUsage() {
-		return "alluxio fs userMustCacheList [get] [refresh]";
+		return "MCL [get] [refresh]";
 	}
 
 	@Override
 	public String getDescription() {
-		return "Display and refresh UserMustCacheList;"
-			+ "Specify get to display userMustCacheList;"
+		return "Display and refresh UserMustCacheList. "
+			+ "Specify get to display userMustCacheList."
 			+ "Specify refresh to refresh the userMustCacheList in Alluxio Master";
 	}
 
