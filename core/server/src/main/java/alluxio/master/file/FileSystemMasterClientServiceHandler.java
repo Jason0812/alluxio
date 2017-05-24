@@ -21,7 +21,6 @@ import alluxio.master.file.options.*;
 import alluxio.thrift.*;
 import alluxio.wire.ThriftUtils;
 import com.google.common.base.Preconditions;
-
 import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -224,6 +223,27 @@ public final class FileSystemMasterClientServiceHandler implements
           result.add(ThriftUtils.toThrift(mountPairInfo));
         }
         return result;
+      }
+    });
+  }
+
+  @Override
+  public List<String> getUserMustCacheList() throws AlluxioTException {
+    return RpcUtils.call(new RpcCallable<List<String>>() {
+      @Override
+      public List<String> call() throws AlluxioException {
+        return mFileSystemMaster.getUserMustCacheList();
+      }
+    });
+  }
+
+  @Override
+  public void refreshUserMustCacheList() throws AlluxioTException {
+    RpcUtils.call(new RpcCallable<Void>() {
+      @Override
+      public Void call() throws AlluxioException{
+        mFileSystemMaster.refreshUserMustCacheList();
+        return null;
       }
     });
   }

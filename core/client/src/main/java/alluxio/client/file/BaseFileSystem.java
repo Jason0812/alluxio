@@ -16,7 +16,6 @@ import alluxio.Constants;
 import alluxio.annotation.PublicApi;
 import alluxio.client.file.options.*;
 import alluxio.exception.*;
-import alluxio.wire.FileInfo;
 import alluxio.wire.MountPairInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -240,9 +239,7 @@ public class BaseFileSystem implements FileSystem {
     FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
     try{
       return masterClient.getMountPoint();
-    }catch(IOException e){
-      throw e;
-    }finally{
+    } finally {
       mFileSystemContext.releaseMasterClient(masterClient);
     }
   }
@@ -322,12 +319,9 @@ public class BaseFileSystem implements FileSystem {
   public MountPairInfo getMountPointWithPath(AlluxioURI path)
       throws IOException,AlluxioException{
     FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
-    try{
+    try {
       return masterClient.getMountPointWithPath(path);
-    }catch(IOException e){
-      e.printStackTrace();
-      throw e;
-    }finally {
+    } finally {
       mFileSystemContext.releaseMasterClient(masterClient);
     }
   }
@@ -338,8 +332,26 @@ public class BaseFileSystem implements FileSystem {
     FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
     try {
       return masterClient.getStatusForUfsLoad(path);
-    } catch (FileDoesNotExistException | InvalidPathException e) {
-      throw new FileDoesNotExistException(ExceptionMessage.PATH_DOES_NOT_EXIST.getMessage(path));
+    } finally {
+      mFileSystemContext.releaseMasterClient(masterClient);
+    }
+  }
+
+  @Override
+  public void refreshUserMustCacheList() throws IOException, AlluxioException {
+    FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
+    try {
+      masterClient.refreshUserMustCacheList();
+    } finally {
+      mFileSystemContext.releaseMasterClient(masterClient);
+    }
+  }
+
+  @Override
+  public List<String> getUserMustCacheList() throws IOException, AlluxioException {
+    FileSystemMasterClient masterClient = mFileSystemContext.acquireMasterClient();
+    try {
+      return masterClient.getUserMustCacheList();
     } finally {
       mFileSystemContext.releaseMasterClient(masterClient);
     }

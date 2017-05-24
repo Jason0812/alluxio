@@ -22,7 +22,6 @@ import alluxio.thrift.FileSystemMasterClientService;
 import alluxio.wire.MountPairInfo;
 import alluxio.wire.ThriftUtils;
 import org.apache.thrift.TException;
-
 import javax.annotation.concurrent.ThreadSafe;
 import javax.security.auth.Subject;
 import java.io.IOException;
@@ -409,6 +408,25 @@ public final class FileSystemMasterClient extends AbstractMasterClient {
       @Override
       public URIStatus call() throws AlluxioTException, TException {
         return new URIStatus(ThriftUtils.fromThrift(mClient.getStatusForUfsLoad(path.getPath())));
+      }
+    });
+  }
+
+  public synchronized void refreshUserMustCacheList() throws IOException, AlluxioException {
+    retryRPC(new RpcCallableThrowsAlluxioTException<Void>() {
+      @Override
+      public Void call() throws AlluxioTException, TException {
+        mClient.refreshUserMustCacheList();
+        return null;
+      }
+    });
+  }
+
+  public synchronized List<String> getUserMustCacheList() throws IOException, AlluxioException {
+    return retryRPC(new RpcCallableThrowsAlluxioTException<List<String>>() {
+      @Override
+      public List<String> call() throws AlluxioTException, TException {
+        return mClient.getUserMustCacheList();
       }
     });
   }

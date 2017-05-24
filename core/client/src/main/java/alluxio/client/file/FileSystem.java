@@ -403,4 +403,8 @@ public interface FileSystem {
 
   URIStatus getStatusForUfsLoad(AlluxioURI path) throws IOException, AlluxioException;
 
+  void refreshUserMustCacheList() throws IOException, AlluxioException;
+
+  List<String> getUserMustCacheList() throws IOException, AlluxioException;
+
 }
