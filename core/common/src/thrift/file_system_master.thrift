@@ -299,14 +299,29 @@ service FileSystemMasterClientService extends common.AlluxioService {
   */
   MountPairInfo getMountPointWithPath(
     /** the path of the directory*/ 1: string path
-    )throws(1: exception.AlluxioTException e)
+    )
+    throws (1: exception.AlluxioTException e)
 
-    /**
-    *get All Mount Point
-    */
-    list<MountPairInfo> getMountPoint(
-     )throws(1:exception.AlluxioTException e)
+  /**
+  * Get All Mount Point
+  */
+  list<MountPairInfo> getMountPoint(
+    )
+    throws (1:exception.AlluxioTException e)
 
+  /**
+  * Refresh UserMustCacheList
+  */
+  void refreshUserMustCacheList(
+    )
+    throws (1: exception.AlluxioTException e)
+
+  /**
+  * Get UserMustCacheList
+  */
+  list<string> getUserMustCacheList(
+    )
+    throws (1: exception.AlluxioTException e)
 }
 
 /**
