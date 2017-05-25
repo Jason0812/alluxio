@@ -4,7 +4,6 @@ import alluxio.AlluxioURI;
 import alluxio.Configuration;
 import alluxio.Constants;
 import alluxio.PropertyKey;
-import alluxio.client.ReadType;
 import alluxio.client.WriteType;
 import alluxio.client.file.FileSystem;
 import alluxio.client.file.FileSystemContext;
@@ -13,7 +12,6 @@ import alluxio.client.file.URIStatus;
 import alluxio.client.file.options.CreateDirectoryOptions;
 import alluxio.client.file.options.CreateFileOptions;
 import alluxio.client.file.options.DeleteOptions;
-import alluxio.client.file.options.OpenFileOptions;
 import alluxio.client.file.options.SetAttributeOptions;
 import alluxio.client.lineage.LineageContext;
 import alluxio.collections.PrefixList;
@@ -94,8 +92,10 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 	private Statistics mStatistics = null;
 	private String mAlluxioHeader = null;
 
-	private PrefixList mUserMustCacheList = new PrefixList(
-			Configuration.getList(PropertyKey.USER_MUSTCACHELIST, ","));
+
+	private PrefixList mUserMustCacheList = null;
+	//new PrefixList(Configuration.getList(PropertyKey.USER_MUSTCACHELIST, ","));
+
 
 	private org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
 
@@ -604,6 +604,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		} finally {
 			FileSystemContext.INSTANCE.releaseMasterClient(client);
 		}
+		mUserMustCacheList = new PrefixList(getUserMustCacheList());
 	}
 
 	private void updateFileSystemAndContext() {
@@ -855,6 +856,14 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			return (hdfsSrc.rename(hdfsSrcPath, hdfsDstPath));
 		} catch (IOException e) {
 			LOG.error("rename src: {} to dst: {} failed in HDFS space", src, dst);
+			throw new IOException(e);
+		}
+	}
+
+	private List<String> getUserMustCacheList() throws IOException {
+		try {
+			return  mFileSystem.getUserMustCacheList();
+		}catch (AlluxioException e) {
 			throw new IOException(e);
 		}
 	}
