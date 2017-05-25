@@ -575,6 +575,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		}
 
 		updateFileSystemAndContext();
+		mUserMustCacheList = new PrefixList(getUserMustCacheList());
 	}
 
 	void initializeInternal(URI uri, org.apache.hadoop.conf.Configuration conf) throws IOException {
@@ -604,7 +605,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		} finally {
 			FileSystemContext.INSTANCE.releaseMasterClient(client);
 		}
-		mUserMustCacheList = new PrefixList(getUserMustCacheList());
 	}
 
 	private void updateFileSystemAndContext() {
@@ -836,8 +836,8 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			if (isSameHDFSAuthority) {
 				try {
 					mFileSystem.rename(srcUri, dstUri);
-				} catch (FileNotFoundException e) {
-					LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
+				} catch (FileDoesNotExistException e) {
+					//LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
 				} catch (AlluxioException e) {
 					throw new IOException(e);
 				}
