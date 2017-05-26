@@ -837,7 +837,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 				try {
 					mFileSystem.rename(srcUri, dstUri);
 				} catch (FileDoesNotExistException e) {
-					//LOG.error("rename failed in alluxio space, src: {} to dst: {}", src, dst);
 				} catch (AlluxioException e) {
 					throw new IOException(e);
 				}
@@ -862,11 +861,12 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 	private List<String> getUserMustCacheList() throws IOException {
 		try {
-			return  mFileSystem.getUserMustCacheList();
-		}catch (AlluxioException e) {
+			return mFileSystem.getUserMustCacheList();
+		} catch (AlluxioException e) {
 			throw new IOException(e);
 		}
 	}
+
 
 	/**
 	 * Convenience method which ensures the given path exists, wrapping any {@link AlluxioException}
@@ -936,9 +936,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		if(hdfsUfs == null){
 			hdfsUfs = org.apache.hadoop.fs.FileSystem.get(hdfsUri,conf);
 			hdfsFileSystemCache.put(authority,hdfsUfs);
-		}
-		if(!ufsMountPoint.endsWith("/")){
-			ufsMountPoint = ufsMountPoint.concat("/");
 		}
 		String ufsPath = ufsMountPoint.concat(mPath.substring(alluxioMountPoint.length()));
 		LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
