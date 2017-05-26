@@ -834,11 +834,12 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 				throw new IOException();
 			}
 			if (isSameHDFSAuthority) {
-				try {
-					mFileSystem.rename(srcUri, dstUri);
-				} catch (FileDoesNotExistException e) {
-				} catch (AlluxioException e) {
-					throw new IOException(e);
+				if(isExistsInAlluxio(srcUri)){
+					try {
+						mFileSystem.rename(srcUri, dstUri);
+					} catch (AlluxioException e1) {
+						throw new IOException(e1);
+					}
 				}
 			}
 			else{
