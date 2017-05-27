@@ -11,10 +11,9 @@
 
 package alluxio;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.HashMap;
 import java.util.Map;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Configurations properties constants. Please check and update Configuration-Settings.md file when
@@ -152,7 +151,7 @@ public enum PropertyKey {
   MASTER_WORKER_THREADS_MAX(Name.MASTER_WORKER_THREADS_MAX, 2048),
   MASTER_WORKER_THREADS_MIN(Name.MASTER_WORKER_THREADS_MIN, 512),
   MASTER_WORKER_TIMEOUT_MS(Name.MASTER_WORKER_TIMEOUT_MS, 300000),
-  MASTER_LOAD_METADATA_FROM_UFS_ENABLED(Name.MASTER_LOAD_METADATA_FROM_UFS_ENABLED, "true"),
+  MASTER_LOAD_METADATA_FROM_UFS_ENABLED(Name.MASTER_LOAD_METADATA_FROM_UFS_ENABLED, "false"),
 
   //
   // Worker related properties
