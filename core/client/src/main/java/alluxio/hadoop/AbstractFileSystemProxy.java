@@ -292,7 +292,9 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 			boolean inUserMustCacheList = isInMustCacheList(mPath);
 			try {
+				LOG.info("mUri: {}", mUri);
 				List<FileBlockInfo> blocks = mFileSystem.getStatus(mUri).getFileBlockInfos();
+				LOG.info("FileBlockInfos: {}", blocks);
 				List<BlockLocation> blockLocations = new ArrayList<>();
 				for (FileBlockInfo fileBlockInfo : blocks) {
 					long offset = fileBlockInfo.getOffset();
@@ -339,15 +341,17 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 	@Override
 	public FileStatus getFileStatus(Path path) throws IOException {
-		LOG.debug("Get status: {}", path);
+		LOG.info("Get status: {}", path);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
 		}
 
+		LOG.info("cache mode enabled: {}", MODE_CACHE_ENABLED);
 		if (MODE_CACHE_ENABLED) {
 			String mPath = HadoopUtils.getPathWithoutScheme(path);
 			AlluxioURI mUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(path));
 			boolean inMustCacheList = isInMustCacheList(mPath);
+			LOG.info("UserMustCacheList: {}, path: {}", inMustCacheList, mPath);
 			if (inMustCacheList) {
 				try {
 					URIStatus fileStatus = mFileSystem.getStatus(mUri);
@@ -367,12 +371,17 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
 		try {
 			FileStatus fileStatus = hdfsUfsInfo.getHdfsUfs().getFileStatus(hdfsUfsInfo.getHdfsPath());
-			//revert to Alluxio space path;
-			String alluxioPath = path.toString().concat(
+			URI mHdfsUfsURI = path.toUri();
+			String schemeAndAuthority = "";
+			if (mHdfsUfsURI.getScheme() != null && mHdfsUfsURI.getAuthority() != null) {
+				schemeAndAuthority = mHdfsUfsURI.getScheme() + "://" + mHdfsUfsURI.getAuthority();
+			}
+			String alluxioPath = schemeAndAuthority + path.toUri().getPath().concat(
 				fileStatus.getPath().toString().substring(hdfsUfsInfo.getHdfsPath().toString().length()));
+			LOG.info("file path: {}", alluxioPath);
 			fileStatus.setPath(new Path(alluxioPath));
 			return fileStatus;
-		}catch(FileNotFoundException e){
+		} catch (FileNotFoundException e){
 			LOG.debug("File Not found, path: {}", path);
 			throw e;
 		} catch (IOException e1){
@@ -773,6 +782,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			AlluxioURI mUri = new AlluxioURI(mPath);
 			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 			boolean isInUserMustCacheList = isInMustCacheList(mPath);
+			LOG.info("Open: UserMustCacheList: {}, path: {}", isInUserMustCacheList, mPath);
 			if (isExistsInAlluxio) {
 				//OpenFileOptions options = OpenFileOptions.defaults().setReadType(ReadType.NO_CACHE);
 				return new FSDataInputStream(new HdfsFileInputStream(mContext, mUri,conf,bufferSize,mStatistics));
@@ -905,7 +915,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 				throw new IOException(e);
 			}
 		}
-		LOG.info("UserMustCacheList: {}", mUserMustCacheList);
 		return mUserMustCacheList.inList(path);
 	}
 
@@ -928,22 +937,36 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		try {
 			for (MountPairInfo mMountPointInfo : mMountPonitList) {
 				String alluxioPath = mMountPointInfo.getAlluxioPath();
-				if (!alluxioPath.equals("/") && PathUtils.hasPrefix(mPath, alluxioPath)) {
+				if (PathUtils.hasPrefix(mPath, alluxioPath)) {
 					LOG.info("Enter it.");
-					isFoundMountPoint = true;
-
 					alluxioMountPoint = alluxioPath;
 					ufsMountPoint = mMountPointInfo.getUfsPath();
 					break;
+				} else if(alluxioPath.startsWith(mPath)){
+					//handle the path for non mount Point (For Default FS	is local UFS)
+					try {
+						URI ufsUriForNonMountPoint = new URI(mMountPointInfo.getUfsPath());
+						if (ufsUriForNonMountPoint.getScheme() != null && ufsMountPoint == null) {
+							ufsMountPoint = ufsUriForNonMountPoint.getScheme() + "://" + ufsUriForNonMountPoint.getAuthority() + mPath;
+							LOG.info("Ufs path for Non mountpoint: {}", ufsMountPoint);
+							org.apache.hadoop.fs.FileSystem hdfsUfs = hdfsFileSystemCache.get(ufsUriForNonMountPoint.getAuthority());
+							if(hdfsUfs == null){
+								hdfsUfs = org.apache.hadoop.fs.FileSystem.get(new URI(ufsMountPoint),conf);
+								hdfsFileSystemCache.put(ufsUriForNonMountPoint.getAuthority(),hdfsUfs);
+							}
+							return new HdfsUfsInfo(ufsMountPoint, hdfsUfs);
+						}
+					} catch (URISyntaxException e){
+						LOG.error("Construct URI, path: {}", ufsMountPoint);
+					}
+				} else {
+					LOG.error("Path Does not Mounted, path: {}", path);
+					throw new IOException();
 				}
 			}
 		} catch (InvalidPathException e){
 			LOG.error("InvalidPathException");
 			throw new IOException(e);
-		}
-		if(!isFoundMountPoint){
-			LOG.error("Cannot find MountPoint for path: {}, in MountTable: {}", path, mMountPonitList);
-			throw new IOException();
 		}
 		try {
 			hdfsUri = new URI(ufsMountPoint);
@@ -960,5 +983,4 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		LOG.info("UfsMountPoint: {}, alluxioMountPoint: {}, Ufs path: {}", ufsMountPoint, alluxioMountPoint, ufsPath);
 		return new HdfsUfsInfo(ufsPath, hdfsUfs);
 	}
-
 }
