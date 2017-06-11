@@ -89,6 +89,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 	private Statistics mStatistics = null;
 	private String mAlluxioHeader = null;
 	private PrefixList mUserMustCacheList = null;
+	private boolean mUserClientCacheEnabled;
 	private org.apache.hadoop.conf.Configuration conf =
 			new org.apache.hadoop.conf.Configuration();
 
@@ -547,6 +548,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 		MODE_CACHE_ENABLED = Configuration.getBoolean(PropertyKey.USER_MODE_CACHE_ENABLED);
 		//MODE_ROUTE_ENABLED = Configuration.getBoolean(PropertyKey.USER_MODE_ROUTE_ENABLED);
+		mUserClientCacheEnabled = Configuration.getBoolean(PropertyKey.USER_CLIENT_CACHE_ENABLED);
 
 		setConf(conf);
 		mAlluxioHeader = getScheme() + "://" + uri.getHost() + ":" + uri.getPort();
@@ -847,13 +849,15 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 	}
 
 	private boolean isInMustCacheList(String path) throws IOException{
-		if(mUserMustCacheList == null){
+		if(mUserMustCacheList == null || !mUserClientCacheEnabled){
 			try {
 				mUserMustCacheList = new PrefixList(mFileSystem.getUserMustCacheList());
 			} catch (AlluxioException e) {
 				throw new RuntimeException(e);
 			}
 		}
+		LOG.info("mUserClientCacheEnabled({}), mUserMustCacheList({})",
+				mUserClientCacheEnabled,mUserMustCacheList);
 		return mUserMustCacheList.inList(path);
 	}
 

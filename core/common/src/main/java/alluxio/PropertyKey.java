@@ -307,6 +307,7 @@ public enum PropertyKey {
   USER_MODE_ROUTE_ENABLED(Name.USER_MODE_ROUTE_ENABLED,true),
   USER_MODE_CACHE_ENABLED(Name.USER_MODE_CACHE_ENABLED,false),
   USER_MUSTCACHELIST(Name.USER_MUSTCACHELIST, ""),
+  USER_CLIENT_CACHE_ENABLED(Name.USER_CLIENT_CACHE_ENABLED,false),
   //
   // FUSE integration related properties
   //
@@ -763,6 +764,8 @@ public enum PropertyKey {
         "alluxio.user.mode.cache.enabled";
     public static final String USER_MUSTCACHELIST =
         "alluxio.user.mustCacheList";
+    public static final String USER_CLIENT_CACHE_ENABLED =
+        "alluxio.client.cache.enable";
 
     //
     // FUSE integration related properties
