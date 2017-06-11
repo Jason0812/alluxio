@@ -173,7 +173,8 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 	@Override
 	public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite,
-			int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
+			int bufferSize, short replication, long blockSize, Progressable progress)
+			throws IOException {
 		LOG.debug("create({}, {}, {}, {}, {}, {}, {})", path, permission,
 				overwrite, bufferSize, replication,
 				blockSize, progress);
@@ -284,7 +285,8 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		return Configuration.getBytes(PropertyKey.USER_BLOCK_SIZE_BYTES_DEFAULT);
 	}
 
-	public BlockLocation[] getFileBlockLocations(FileStatus file, long start, long len) throws IOException {
+	public BlockLocation[] getFileBlockLocations(FileStatus file, long start, long len)
+			throws IOException {
 		LOG.debug("getFileBlockLocations({}, {}, {})", file, start, len);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
@@ -393,7 +395,8 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 	 * @throws IOException
 	 */
 	@Override
-	public void setOwner(Path path, final String username, final String groupname) throws IOException {
+	public void setOwner(Path path, final String username, final String groupname)
+			throws IOException {
 		LOG.debug("setOwner({}, {}, {})", path, username, groupname);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesRead(1);
@@ -531,7 +534,8 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 	@SuppressFBWarnings("ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD")
 	@Override
-	public void initialize(URI uri, org.apache.hadoop.conf.Configuration conf) throws IOException {
+	public void initialize(URI uri, org.apache.hadoop.conf.Configuration conf)
+			throws IOException {
 		Preconditions.checkNotNull(uri.getHost(), PreconditionMessage.URI_HOST_NULL);
 		Preconditions.checkNotNull(uri.getPort(), PreconditionMessage.URI_PORT_NULL);
 
@@ -584,7 +588,8 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		updateFileSystemAndContext();
 	}
 
-	private void initializeInternal(URI uri, org.apache.hadoop.conf.Configuration conf) throws IOException {
+	private void initializeInternal(URI uri, org.apache.hadoop.conf.Configuration conf)
+			throws IOException {
 		// These must be reset to pick up the change to the master address.
 		// TODO(andrew): We should reset key value system in this situation - see ALLUXIO-1706.
 		LineageContext.INSTANCE.reset();
