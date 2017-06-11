@@ -2450,8 +2450,8 @@ public final class FileSystemMaster extends AbstractMaster {
     }
     // This file is loaded from UFS. By setting default mode to false, umask will not be
     // applied to loaded mode.
-    createFileOptions = createFileOptions.setPermission(permission).setDefaultMode(false);
-
+    createFileOptions = createFileOptions.setPermission(permission).setDefaultMode(false).
+        setOperationTimeMs(ufs.getModificationTimeMs(ufsUri.toString()));
     try {
       long counter = createFileAndJournal(inodePath, createFileOptions);
       CompleteFileOptions completeOptions = CompleteFileOptions.defaults().setUfsLength(ufsLength);

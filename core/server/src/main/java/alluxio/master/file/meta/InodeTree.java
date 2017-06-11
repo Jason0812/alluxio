@@ -565,6 +565,8 @@ public class InodeTree implements JournalCheckpointStreamable {
       InodeDirectory dir =
           InodeDirectory.create(mDirectoryIdGenerator.getNewDirectoryId(),
               currentInodeDirectory.getId(), pathComponents[k], missingDirOptions);
+      dir.setCreationTimeMs(options.getOperationTimeMs());
+      dir.setLastModificationTimeMs(options.getOperationTimeMs());
       // Lock the newly created inode before subsequent operations, and add it to the lock group.
       lockList.lockWriteAndCheckNameAndParent(dir, currentInodeDirectory, pathComponents[k]);
 
@@ -616,6 +618,8 @@ public class InodeTree implements JournalCheckpointStreamable {
         lastInode = InodeFile.create(mContainerIdGenerator.getNewContainerId(),
             currentInodeDirectory.getId(), name, System.currentTimeMillis(), fileOptions);
         // Lock the created inode before subsequent operations, and add it to the lock group.
+        lastInode.setCreationTimeMs(options.getOperationTimeMs());
+        lastInode.setLastModificationTimeMs(options.getOperationTimeMs());
         lockList.lockWriteAndCheckNameAndParent(lastInode, currentInodeDirectory, name);
         if (currentInodeDirectory.isPinned()) {
           // Update set of pinned file ids.

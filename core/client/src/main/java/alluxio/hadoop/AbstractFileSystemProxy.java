@@ -101,8 +101,33 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		sInitialized = true;
 	}
 
+	public FSDataOutputStream appendv2(Path path, int bufferSize, Progressable progress)
+			throws IOException {
+		LOG.debug("appendV2({}, {}, {})", path, bufferSize, progress);
+
+		if (mStatistics != null) {
+			mStatistics.incrementBytesWritten(1);
+		}
+
+		String mPath = HadoopUtils.getPathWithoutScheme(path);
+		if (MODE_CACHE_ENABLED && isInMustCacheList(mPath)) {
+			LOG.error("Alluxio Space DoesNotSupport: Append({}) in UserMustCacheList({})",
+					path, mUserMustCacheList);
+			throw new UnsupportedOperationException();
+		}
+
+		HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
+		try {
+			return hdfsUfsInfo.getHdfsUfs().append(hdfsUfsInfo.getHdfsPath(), bufferSize, progress);
+		} catch(IOException e) {
+			LOG.error("Append Failed in HDFS Space ({})", path);
+			throw e;
+		}
+	}
+
 	@Override
-	public FSDataOutputStream append(Path path, int bufferSize, Progressable progress) throws IOException {
+	public FSDataOutputStream append(Path path, int bufferSize, Progressable progress)
+			throws IOException {
 		LOG.debug("append({}, {}, {})", path, bufferSize, progress);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesWritten(1);
@@ -113,19 +138,9 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			AlluxioURI mUri = new AlluxioURI(mPath);
 			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
 			if (isInMustCacheList(mPath)){
-				if(isExistsInAlluxio) {
-					LOG.error("Alluxio Space DoesNotSupport: Append({}) in UserMustCacheList({})",
-							path, mUserMustCacheList);
-					throw new UnsupportedOperationException();
-				}else{
-					CreateFileOptions options = CreateFileOptions.defaults()
-							.setRecursive(true);
-					try {
-						mFileSystem.createFile(mUri, options);
-					} catch (AlluxioException e) {
-						throw new RuntimeException(e);
-					}
-				}
+				LOG.error("Alluxio Space DoesNotSupport: Append({}) in UserMustCacheList({})",
+						path, mUserMustCacheList);
+				throw new UnsupportedOperationException();
 			}
 
 			if(isExistsInAlluxio){
@@ -158,7 +173,8 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 	@Override
 	public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite,
 			int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
-		LOG.debug("create({}, {}, {}, {}, {}, {}, {})", path, permission, overwrite, bufferSize, replication,
+		LOG.debug("create({}, {}, {}, {}, {}, {}, {})", path, permission,
+				overwrite, bufferSize, replication,
 				blockSize, progress);
 		if (mStatistics != null) {
 			mStatistics.incrementBytesWritten(1);
@@ -178,9 +194,9 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 					}
 					mFileSystem.delete(mUri);
 				}
-				CreateFileOptions options = CreateFileOptions.defaults()
-						.setWriteType(WriteType.MUST_CACHE).setMode(new Mode(permission.toShort()));
 				if(isInMustCacheList(mPath)) {
+					CreateFileOptions options = CreateFileOptions.defaults()
+							.setWriteType(WriteType.MUST_CACHE).setMode(new Mode(permission.toShort()));
 					return new FSDataOutputStream(mFileSystem.createFile(mUri, options), mStatistics);
 				}
 			} catch (AlluxioException e1) {
@@ -249,7 +265,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			}
 		}
 
-		//If path is not in mUserMustCacheList, should delete it in HDFS space;
+		//If path is not in mUserMustCacheList, delete it in HDFS space;
 		HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
 		org.apache.hadoop.fs.FileSystem hdfs = hdfsUfsInfo.getHdfsUfs();
 		Path hdfsPath = hdfsUfsInfo.getHdfsPath();
@@ -333,7 +349,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			String mPath = HadoopUtils.getPathWithoutScheme(path);
 			AlluxioURI mUri = new AlluxioURI(HadoopUtils.getPathWithoutScheme(path));
 			boolean inMustCacheList = isInMustCacheList(mPath);
-			if (inMustCacheList) {
+		//	if (inMustCacheList) {
 				try {
 					URIStatus fileStatus = mFileSystem.getStatus(mUri);
 					return new FileStatus(fileStatus.getLength(), fileStatus.isFolder(), BLOCK_REPLICATION_CONSTANT,
@@ -341,12 +357,14 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 						new FsPermission((short) fileStatus.getMode()), fileStatus.getOwner(), fileStatus.getGroup(),
 						new Path(mAlluxioHeader + mUri));
 				} catch (FileDoesNotExistException e) {
-					throw new FileNotFoundException(e.getMessage());
+					if (inMustCacheList) {
+						throw new FileNotFoundException(e.getMessage());
+					}
 				} catch (AlluxioException e1) {
 					LOG.error("getFileStatus Failed in Alluxio Space ({})", path);
 					throw new RuntimeException(e1);
 				}
-			}
+		//	}
 		}
 
 		HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
@@ -564,7 +582,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		updateFileSystemAndContext();
 	}
 
-	void initializeInternal(URI uri, org.apache.hadoop.conf.Configuration conf) throws IOException {
+	private void initializeInternal(URI uri, org.apache.hadoop.conf.Configuration conf) throws IOException {
 		// These must be reset to pick up the change to the master address.
 		// TODO(andrew): We should reset key value system in this situation - see ALLUXIO-1706.
 		LineageContext.INSTANCE.reset();
@@ -740,7 +758,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			String mPath = HadoopUtils.getPathWithoutScheme(path);
 			AlluxioURI mUri = new AlluxioURI(mPath);
 			boolean isExistsInAlluxio = isExistsInAlluxio(mUri);
-			boolean isInUserMustCacheList = isInMustCacheList(mPath);
 			if (isExistsInAlluxio) {
 				return new FSDataInputStream(new HdfsFileInputStream(mContext, mUri,conf,bufferSize,mStatistics));
 			}
@@ -749,7 +766,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		HdfsUfsInfo hdfsUfsInfo = PathResolve(path);
 		try {
 			return hdfsUfsInfo.getHdfsUfs().open(hdfsUfsInfo.getHdfsPath());
-		}catch (IOException e){
+		} catch (IOException e) {
 			LOG.error("open Failed in HDFS Space ({})", path);
 			throw e;
 		}
@@ -800,9 +817,9 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 				throw new UnsupportedOperationException();
 			}
 
-			if (isExistsInAlluxio(srcUri)) {
+			if (isSameHDFSAuthority && isExistsInAlluxio(srcUri)) {
 				try {
-					mFileSystem.delete(srcUri);
+					mFileSystem.rename(srcUri,dstUri);
 				} catch (AlluxioException e1) {
 					throw new RuntimeException(e1);
 				}
@@ -880,7 +897,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		try {
 			for (MountPairInfo mMountPointInfo : mMountPonitList) {
 				String alluxioMountPoint = mMountPointInfo.getAlluxioPath();
-				if (PathUtils.hasPrefix(mPath, alluxioMountPoint)) {
+				if (!alluxioMountPoint.equals("/") && PathUtils.hasPrefix(mPath, alluxioMountPoint)) {
 					ufsMountPoint = mMountPointInfo.getUfsPath();
 					return getUfsFileSystem(mPath, alluxioMountPoint, ufsMountPoint);
 				} else if (alluxioMountPoint.startsWith(mPath)) {
