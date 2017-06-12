@@ -50,7 +50,6 @@ import alluxio.wire.BlockInfo;
 import alluxio.wire.BlockLocation;
 import alluxio.wire.WorkerInfo;
 import alluxio.wire.WorkerNetAddress;
-
 import com.codahale.metrics.Gauge;
 import com.google.common.collect.ImmutableSet;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -59,6 +58,8 @@ import org.apache.thrift.TProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,9 +71,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
 
 /**
  * This master manages the metadata for all the blocks and block workers in Alluxio.
@@ -486,7 +484,6 @@ public final class BlockMaster extends AbstractMaster implements ContainerIdGene
    * @param blockId the id of the block to commit
    * @param length the length of the block
    */
-  /** (jason make sure)##commitBlockInUFS just use in FileSystemMaster in complete File */
   public void commitBlockInUFS(long blockId, long length) {
     LOG.debug("Commit block in ufs. blockId: {}, length: {}", blockId, length);
     if (mBlocks.get(blockId) != null) {

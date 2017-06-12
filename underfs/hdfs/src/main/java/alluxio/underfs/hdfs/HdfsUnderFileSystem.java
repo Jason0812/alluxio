@@ -32,14 +32,12 @@ import com.google.common.base.Throwables;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.security.SecurityUtil;
-import org.apache.hadoop.util.Progressable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -487,81 +485,6 @@ public class HdfsUnderFileSystem extends BaseUnderFileSystem
       LOG.error("Fail to get permission for {} ", path, e);
       throw e;
     }
-  }
-
-  public FSDataOutputStream append(String path, int bufferSize, Progressable progress) throws IOException {
-    IOException te = null;
-    RetryPolicy retryPolicy = new CountingRetry(MAX_TRY);
-    while(retryPolicy.attemptRetry()){
-      try{
-        LOG.debug("Append to hdfs file {} with bufferSize {}", path, bufferSize);
-        return mFileSystem.append(new Path(path), bufferSize, progress);
-      }catch (IOException e){
-        LOG.error("Retry count: {} {}", retryPolicy.getRetryCount(), e.getMessage(), e);
-        te = e;
-      }
-    }
-    throw te;
-  }
-
-  public FileStatus getFileStatus(String path) throws IOException {
-    IOException te = null;
-    RetryPolicy retryPolicy = new CountingRetry(MAX_TRY);
-    while(retryPolicy.attemptRetry()){
-      try{
-        LOG.info("Get File Status: {}", path);
-        return mFileSystem.getFileStatus(new Path(path));
-      }catch (IOException e){
-        LOG.error("Retry count: {} {}", retryPolicy.getRetryCount(), e.getMessage(), e);
-        te = e;
-      }
-    }
-    throw te;
-  }
-
-  public BlockLocation[] getFileBlockLocations(String path, long start, long len) throws IOException {
-    IOException te = null;
-    RetryPolicy retryPolicy = new CountingRetry(MAX_TRY);
-    while(retryPolicy.attemptRetry()){
-      try{
-        LOG.debug("Get file block locations: {}, start {}, len {}", path, start, len);
-        return mFileSystem.getFileBlockLocations(new Path(path),start,len);
-      }catch (IOException e){
-        LOG.error("Retry count: {} {}", retryPolicy.getRetryCount(), e.getMessage(), e);
-        te = e;
-      }
-    }
-    throw te;
-  }
-
-  public FileStatus[] listStatus(String path, String label) throws IOException{
-    IOException te = null;
-    RetryPolicy retryPolicy = new CountingRetry(MAX_TRY);
-    while(retryPolicy.attemptRetry()){
-      try{
-        LOG.debug("list Status: {}, label {}", path, label);
-        return mFileSystem.listStatus(new Path(path));
-      }catch (IOException e){
-        LOG.error("Retry count: {} {}", retryPolicy.getRetryCount(), e.getMessage(), e);
-        te = e;
-      }
-    }
-    throw te;
-  }
-
-  public boolean mkdirs(String path, FsPermission permission) throws IOException{
-    IOException te = null;
-    RetryPolicy retryPolicy = new CountingRetry(MAX_TRY);
-    while(retryPolicy.attemptRetry()){
-      try{
-        LOG.debug("mkdirs: {}, Permission: {}", path, permission);
-        return mFileSystem.mkdirs(new Path(path),permission);
-      }catch (IOException e){
-        LOG.error("Retry count: {} {}", retryPolicy.getRetryCount(), e.getMessage(), e);
-        te = e;
-      }
-    }
-    throw te;
   }
 
   @Override

@@ -207,7 +207,6 @@ public final class FileSystemMaster extends AbstractMaster {
    * (D) cannot call (D)
    */
 
-  /** This enable the master to load metadata form ufs **/
   /** Handle to the block master. */
   private final BlockMaster mBlockMaster;
 
@@ -334,10 +333,6 @@ public final class FileSystemMaster extends AbstractMaster {
         throw new RuntimeException(e);
       }
     } else if (entry.hasPersistDirectory()) {
-      /**
-       * comment(Jason): isPersisted means: the path is load from ufs; should replay after
-       * master restart;
-       */
         PersistDirectoryEntry typedEntry = entry.getPersistDirectory();
         try (LockedInodePath inodePath = mInodeTree.lockFullInodePath(typedEntry.getId(),
             InodeTree.LockMode.WRITE)) {
@@ -414,7 +409,6 @@ public final class FileSystemMaster extends AbstractMaster {
       // If it is standby, it should be able to load the inode tree from leader's checkpoint.
       mInodeTree
           .initializeRoot(Permission.defaults().applyDirectoryUMask().setOwnerFromLoginModule());
-      /** (jason make sure) In our use case, default ufs: local is best */
       String defaultUFS = Configuration.get(PropertyKey.UNDERFS_ADDRESS);
       try {
         mMountTable.add(new AlluxioURI(MountTable.ROOT), new AlluxioURI(defaultUFS),
@@ -797,12 +791,6 @@ public final class FileSystemMaster extends AbstractMaster {
       }
     }
 
-    /**
-     * Todo(jason): how to design and usage this logic
-     * The file just cache in alluxio without ufs path, if the alluxio worker shutdown, the block data will be lost;
-     * How to handle this situation. (how to maintenance)
-     * Enable the worker to load data auto ????
-     */
     MountTable.Resolution resolution;
     try {
       resolution = mMountTable.resolve(uri);
@@ -859,8 +847,6 @@ public final class FileSystemMaster extends AbstractMaster {
       mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
 
       Inode<?> inode;
-
-
       LoadMetadataOptions loadMetadataOptions =
           LoadMetadataOptions.defaults().setCreateAncestors(true).setLoadDirectChildren(
               listStatusOptions.getLoadMetadataType() != LoadMetadataType.Never)
@@ -875,7 +861,6 @@ public final class FileSystemMaster extends AbstractMaster {
         }
       }
       flushCounter = loadMetadataIfNotExistAndJournal(inodePath, loadMetadataOptions);
-
 
       mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
       inode = inodePath.getInode();
@@ -1059,7 +1044,6 @@ public final class FileSystemMaster extends AbstractMaster {
 
     // If the file is persisted, its length is determined by UFS. Otherwise, its length is
     // determined by its memory footprint.
-    //TODO(Jason): in our use case, length = inMemoryLength always.
     long length = fileInode.isPersisted() ? options.getUfsLength() : inMemoryLength;
 
     completeFileInternal(fileInode.getBlockIds(), inodePath, length, opTimeMs);
@@ -1091,7 +1075,6 @@ public final class FileSystemMaster extends AbstractMaster {
     inode.setLastModificationTimeMs(opTimeMs);
     inode.complete(length);
 
-    //todo(jason): should test this when load data from ufs;
     if (inode.isPersisted()) {
       // Commit all the file blocks (without locations) so the metadata for the block exists.
       long currLength = length;
@@ -1191,7 +1174,6 @@ public final class FileSystemMaster extends AbstractMaster {
       CreateFileOptions options)
       throws InvalidPathException, FileAlreadyExistsException, BlockInfoException, IOException,
       FileDoesNotExistException {
-    /** (jason make sure): check createPath already */
     InodeTree.CreatePathResult createResult = mInodeTree.createPath(inodePath, options);
     // If the create succeeded, the list of created inodes will not be empty.
     List<Inode<?>> created = createResult.getCreated();
@@ -1223,7 +1205,6 @@ public final class FileSystemMaster extends AbstractMaster {
       TtlAction ttlAction) throws InvalidPathException, FileDoesNotExistException {
     long flushCounter = AsyncJournalWriter.INVALID_FLUSH_COUNTER;
     try (LockedInodePath inodePath = mInodeTree.lockFullInodePath(path, InodeTree.LockMode.WRITE)) {
-      /** (Jason make sure): ##reinitializeFile doesnot interact with ufs */
       long id = mInodeTree.reinitializeFile(inodePath, blockSizeBytes, ttl, ttlAction);
       ReinitializeFileEntry reinitializeFile = ReinitializeFileEntry.newBuilder()
           .setPath(path.getPath()).setBlockSizeBytes(blockSizeBytes).setTtl(ttl)
@@ -1275,7 +1256,6 @@ public final class FileSystemMaster extends AbstractMaster {
   /**
    * @return a copy of the current mount table
    */
-  //todo(jason): client call this method through RPC, and client get this mountable and cache it to accelerate;
   public Map<String, MountInfo> getMountTable() {
     return mMountTable.getMountTable();
   }
@@ -1290,7 +1270,6 @@ public final class FileSystemMaster extends AbstractMaster {
   /**
    * @return the number of pinned files and directories
    */
-  //TODO(Jason): Importantly, how to use pin in memory for use case??????
   public int getNumberOfPinnedFiles() {
     return mInodeTree.getPinnedSize();
   }
@@ -1447,7 +1426,6 @@ public final class FileSystemMaster extends AbstractMaster {
             // If this is a mount point, we have deleted all the children and can unmount it
             // TODO(calvin): Add tests (ALLUXIO-1831)
             if (mMountTable.isMountPoint(alluxioUriToDel)) {
-              //comment(Jason): in our case, mount table should not be delete always
               unmountInternal(alluxioUriToDel);
             } else {
               // Delete the file in the under file system.
@@ -1748,7 +1726,6 @@ public final class FileSystemMaster extends AbstractMaster {
       CreateDirectoryOptions options) throws InvalidPathException, FileAlreadyExistsException,
       IOException, AccessControlException, FileDoesNotExistException {
     try {
-      //TODO(Jason): check InodeTree##createPath
       return mInodeTree.createPath(inodePath, options);
     } catch (BlockInfoException e) {
       // Since we are creating a directory, the block size is ignored, no such exception should
@@ -1787,7 +1764,6 @@ public final class FileSystemMaster extends AbstractMaster {
       // At least one directory was created, so journal the state of the directory id generator.
       counter = appendJournalEntry(mDirectoryIdGenerator.toJournalEntry());
     }
-
     for (Inode<?> inode : createResult.getPersisted()) {
       PersistDirectoryEntry persistDirectory = PersistDirectoryEntry.newBuilder()
           .setId(inode.getId())
@@ -1795,7 +1771,6 @@ public final class FileSystemMaster extends AbstractMaster {
       counter = appendJournalEntry(
           JournalEntry.newBuilder().setPersistDirectory(persistDirectory).build());
     }
-
     return counter;
   }
 
@@ -1969,7 +1944,6 @@ public final class FileSystemMaster extends AbstractMaster {
 
     // 3. Do UFS operations if necessary.
     // If the source file is persisted, rename it in the UFS.
-    //TODO(Jason): rename operation coordinate move to proxy;
 
     try {
       if (!replayed && srcInode.isPersisted() && LOAD_METADATA_FROM_UFS_ENABLED) {
@@ -2258,7 +2232,6 @@ public final class FileSystemMaster extends AbstractMaster {
    */
   public List<Long> getLostFiles() {
     Set<Long> lostFiles = new HashSet<>();
-    //todo(jason): check BlockMaster##getLostBlocks
     for (long blockId : mBlockMaster.getLostBlocks()) {
       // the file id is the container id of the block id
       long containerId = BlockId.getContainerId(blockId);
@@ -2435,8 +2408,6 @@ public final class FileSystemMaster extends AbstractMaster {
     long ufsBlockSizeByte = ufs.getBlockSizeByte(ufsUri.toString());
     long ufsLength = ufs.getFileSize(ufsUri.toString());
     // Metadata loaded from UFS has no TTL set.
-    //todo: isPersisted determins where to get the block data after failed from Alluxio Space;
-    //when delete in Alluxio Space for free space and master heap, while not delete in ufs space;
     CreateFileOptions createFileOptions =
         CreateFileOptions.defaults().setBlockSizeBytes(ufsBlockSizeByte)
             .setRecursive(options.isCreateAncestors()).setMetadataLoad(true).setPersisted(true);
@@ -3088,8 +3059,6 @@ public final class FileSystemMaster extends AbstractMaster {
     boolean modeChanged = (options.getMode() != Constants.INVALID_MODE);
     // If the file is persisted in UFS, also update corresponding owner/group/permission.
 
-    //checked(jason): in our case, inode is not peristed always
-    //todo(jason): setAttr coordinate is in Proxy
     if ((ownerGroupChanged || modeChanged) && !replayed && inode.isPersisted() && LOAD_METADATA_FROM_UFS_ENABLED) {
       if ((inode instanceof InodeFile) && !((InodeFile) inode).isCompleted()) {
         LOG.debug("Alluxio does not propagate chown/chgrp/chmod to UFS for incomplete files.");
