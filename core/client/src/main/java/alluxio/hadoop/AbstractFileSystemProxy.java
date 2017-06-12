@@ -861,8 +861,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 				throw new RuntimeException(e);
 			}
 		}
-		LOG.info("mUserClientCacheEnabled({}), mUserMustCacheList({})",
-				mUserClientCacheEnabled,mUserMustCacheList);
 		return mUserMustCacheList.inList(path);
 	}
 
@@ -893,10 +891,13 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 	private HdfsUfsInfo PathResolve(Path path) throws IOException {
 		LOG.info("PathResove({})",path);
+		if (!path.toString().startsWith("/")) {
+			path = new Path(getHomeDirectory(), path);
+		}
 		String mPath = HadoopUtils.getPathWithoutScheme(path);
 		String ufsMountPoint = null;
 
-		if(mMountPonitList == null){
+		if(mMountPonitList == null || !mUserClientCacheEnabled){
 			try {
 				mMountPonitList = mFileSystem.getMountPoint();
 			} catch (AlluxioException e) {
