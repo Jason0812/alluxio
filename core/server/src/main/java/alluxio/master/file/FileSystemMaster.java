@@ -2616,7 +2616,7 @@ public final class FileSystemMaster extends AbstractMaster {
     try {
       // This will create the directory at alluxioPath
       loadDirectoryMetadataAndJournal(inodePath,
-          LoadMetadataOptions.defaults().setCreateAncestors(false));
+          LoadMetadataOptions.defaults().setCreateAncestors(false).setLoadFromUfs(true));
       loadMetadataSucceeded = true;
     } finally {
       if (!loadMetadataSucceeded) {
