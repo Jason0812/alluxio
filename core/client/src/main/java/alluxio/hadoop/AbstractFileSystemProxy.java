@@ -189,10 +189,10 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			try {
 				if (isExistsInAlluxio) {
 					if (!overwrite) {
-						throw new IOException(ExceptionMessage.FILE_ALREADY_EXISTS.getMessage());
+						throw new IOException(ExceptionMessage.FILE_ALREADY_EXISTS.getMessage(path));
 					}
 					if (mFileSystem.getStatus(mUri).isFolder()) {
-						throw new IOException(ExceptionMessage.FILE_CREATE_IS_DIRECTORY.getMessage());
+						throw new IOException(ExceptionMessage.FILE_CREATE_IS_DIRECTORY.getMessage(path));
 					}
 					mFileSystem.delete(mUri);
 				}
