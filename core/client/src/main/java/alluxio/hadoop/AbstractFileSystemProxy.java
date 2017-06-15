@@ -13,7 +13,6 @@ import alluxio.client.file.options.CreateDirectoryOptions;
 import alluxio.client.file.options.CreateFileOptions;
 import alluxio.client.file.options.DeleteOptions;
 import alluxio.client.file.options.SetAttributeOptions;
-import alluxio.client.lineage.LineageContext;
 import alluxio.collections.PrefixList;
 import alluxio.exception.AlluxioException;
 import alluxio.exception.ConnectionFailedException;
@@ -165,6 +164,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 	@Override
 	public void close() throws IOException {
+		LOG.info("Close FileSystem ({})", this.toString());
 		if (mContext != FileSystemContext.INSTANCE) {
 			mContext.close();
 		}
@@ -540,7 +540,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		Preconditions.checkNotNull(uri.getPort(), PreconditionMessage.URI_PORT_NULL);
 
 		super.initialize(uri, conf);
-		conf.set("fs.hdfs.impl.disable.cache", System.getProperty("fs.hdfs.impl.disable.cache", "true"));
 		LOG.debug("initialize({}, {}). Connecting to Alluxio", uri, conf);
 
 		// Load Alluxio configuration if any and merge to the one in Alluxio file system. These
@@ -592,7 +591,6 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			throws IOException {
 		// These must be reset to pick up the change to the master address.
 		// TODO(andrew): We should reset key value system in this situation - see ALLUXIO-1706.
-		LineageContext.INSTANCE.reset();
 		FileSystemContext.INSTANCE.reset();
 
 		// Try to connect to master, if it fails, the provided uri is invalid.
@@ -929,5 +927,24 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 		} catch (InvalidPathException e){
 			throw new RuntimeException(e);
 		}
+	}
+
+	@Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder("AbstractFileSystemProxy{");
+		sb.append("MODE_CACHE_ENABLED=").append(MODE_CACHE_ENABLED);
+		sb.append(", hdfsFileSystemCache=").append(hdfsFileSystemCache);
+		sb.append(", mMountPonitList=").append(mMountPonitList);
+		sb.append(", mContext=").append(mContext);
+		sb.append(", mFileSystem=").append(mFileSystem);
+		sb.append(", mUri=").append(mUri);
+		sb.append(", mWorkingDir=").append(mWorkingDir);
+		sb.append(", mStatistics=").append(mStatistics);
+		sb.append(", mAlluxioHeader='").append(mAlluxioHeader).append('\'');
+		sb.append(", mUserMustCacheList=").append(mUserMustCacheList);
+		sb.append(", mUserClientCacheEnabled=").append(mUserClientCacheEnabled);
+		sb.append(", conf=").append(conf);
+		sb.append('}');
+		return sb.toString();
 	}
 }
