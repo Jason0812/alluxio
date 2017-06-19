@@ -89,8 +89,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 	private String mAlluxioHeader = null;
 	private PrefixList mUserMustCacheList = null;
 	private boolean mUserClientCacheEnabled;
-	private org.apache.hadoop.conf.Configuration conf =
-			new org.apache.hadoop.conf.Configuration();
+	private org.apache.hadoop.conf.Configuration conf = null;
 
 	AbstractFileSystemProxy() {
 	}
@@ -534,32 +533,32 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 
 	@SuppressFBWarnings("ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD")
 	@Override
-	public void initialize(URI uri, org.apache.hadoop.conf.Configuration conf)
+	public void initialize(URI uri, org.apache.hadoop.conf.Configuration mConf)
 			throws IOException {
 		Preconditions.checkNotNull(uri.getHost(), PreconditionMessage.URI_HOST_NULL);
 		Preconditions.checkNotNull(uri.getPort(), PreconditionMessage.URI_PORT_NULL);
 
-		super.initialize(uri, conf);
-		LOG.debug("initialize({}, {}). Connecting to Alluxio", uri, conf);
+		super.initialize(uri, mConf);
+		LOG.debug("initialize({}, {}). Connecting to Alluxio", uri, mConf);
 
 		// Load Alluxio configuration if any and merge to the one in Alluxio file system. These
 		// modifications to ClientContext are global, affecting all Alluxio clients in this JVM.
 		// We assume here that all clients use the same configuration.
-		HadoopUtils.addS3Credentials(conf);
-		HadoopUtils.addSwiftCredentials(conf);
-		ConfUtils.mergeHadoopConfiguration(conf);
+		HadoopUtils.addS3Credentials(mConf);
+		HadoopUtils.addSwiftCredentials(mConf);
+		ConfUtils.mergeHadoopConfiguration(mConf);
 
 		MODE_CACHE_ENABLED = Configuration.getBoolean(PropertyKey.USER_MODE_CACHE_ENABLED);
 		//MODE_ROUTE_ENABLED = Configuration.getBoolean(PropertyKey.USER_MODE_ROUTE_ENABLED);
 		mUserClientCacheEnabled = Configuration.getBoolean(PropertyKey.USER_CLIENT_CACHE_ENABLED);
 
-		setConf(conf);
+		setConf(mConf);
 		mAlluxioHeader = getScheme() + "://" + uri.getHost() + ":" + uri.getPort();
 		// Set the statistics member. Use mStatistics instead of the parent class's variable.
 		mStatistics = statistics;
 		mUri = URI.create(mAlluxioHeader);
 		boolean masterAddIsSameAsDefault = checkMasterAddress();
-
+		conf = mConf;
 		if (sInitialized && masterAddIsSameAsDefault) {
 			updateFileSystemAndContext();
 			return;
@@ -580,7 +579,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			Configuration.set(PropertyKey.MASTER_HOSTNAME, uri.getHost());
 			Configuration.set(PropertyKey.MASTER_RPC_PORT, uri.getPort());
 			Configuration.set(PropertyKey.ZOOKEEPER_ENABLED, isZookeeperMode());
-			initializeInternal(uri, conf);
+			initializeInternal(uri, mConf);
 			sInitialized = true;
 		}
 
