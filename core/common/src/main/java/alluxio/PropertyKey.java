@@ -304,7 +304,6 @@ public enum PropertyKey {
   USER_LOCAL_READER_PACKET_SIZE_BYTES(Name.USER_LOCAL_READER_PACKET_SIZE_BYTES, "8MB"),
   USER_LOCAL_WRITER_PACKET_SIZE_BYTES(Name.USER_LOCAL_WRITER_PACKET_SIZE_BYTES, "64KB"),
   USER_PACKET_STREAMING_ENABLED(Name.USER_PACKET_STREAMING_ENABLED, false),
-  USER_MODE_ROUTE_ENABLED(Name.USER_MODE_ROUTE_ENABLED,true),
   USER_MODE_CACHE_ENABLED(Name.USER_MODE_CACHE_ENABLED,false),
   USER_MUSTCACHELIST(Name.USER_MUSTCACHELIST, ""),
   USER_CLIENT_CACHE_ENABLED(Name.USER_CLIENT_CACHE_ENABLED,true),
@@ -758,8 +757,6 @@ public enum PropertyKey {
         "alluxio.user.local.writer.packet.size.bytes";
     public static final String USER_PACKET_STREAMING_ENABLED =
         "alluxio.user.packet.streaming.enabled";
-    public static final String USER_MODE_ROUTE_ENABLED =
-        "alluxio.user.mode.route.enabled";
     public static final String USER_MODE_CACHE_ENABLED =
         "alluxio.user.mode.cache.enabled";
     public static final String USER_MUSTCACHELIST =

@@ -140,6 +140,7 @@
           <groupId>org.apache.curator</groupId>
           <artifactId>curator-framework</artifactId>
           <version>${apache.curator.version}</version>
+          <scope>provided</scope>
           <exclusions>
             <exclusion>
               <groupId>org.jboss.netty</groupId>
@@ -283,6 +284,7 @@
                   </excludes>
                 </filter>
               </filters>
+              <minimizeJar>true</minimizeJar>
             </configuration>
           </execution>
         </executions>

@@ -1521,8 +1521,7 @@ public final class FileSystemMaster extends AbstractMaster {
     long offset = file.getBlockSizeBytes() * BlockId.getSequenceNumber(blockInfo.getBlockId());
     fileBlockInfo.setOffset(offset);
 
-    if (fileBlockInfo.getBlockInfo().getLocations().isEmpty()
-      && file.isPersisted()) {
+    if (fileBlockInfo.getBlockInfo().getLocations().isEmpty() && file.isPersisted()) {
       // No alluxio locations, but there is a checkpoint in the under storage system. Add the
       // locations from the under storage system.
       MountTable.Resolution resolution = mMountTable.resolve(inodePath.getUri());

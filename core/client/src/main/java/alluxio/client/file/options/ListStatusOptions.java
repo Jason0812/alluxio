@@ -30,7 +30,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 public final class ListStatusOptions {
   private LoadMetadataType mLoadMetadataType;
   //default is false in our case
-  private boolean mLoadFromUfs;
+  private boolean mShouldLoadFromUfs;
 
   /**
    * @return the default {@link ListStatusOptions}
@@ -41,7 +41,7 @@ public final class ListStatusOptions {
 
   private ListStatusOptions() {
     mLoadMetadataType = LoadMetadataType.Once;
-    mLoadFromUfs = false;
+    mShouldLoadFromUfs = false;
   }
 
   /**
@@ -94,16 +94,16 @@ public final class ListStatusOptions {
         mLoadMetadataType == LoadMetadataType.Once || mLoadMetadataType == LoadMetadataType.Always);
 
     options.setLoadMetadataType(LoadMetadataType.toThrift(mLoadMetadataType));
-    options.setLoadFromUfs(mLoadFromUfs);
+    options.setLoadFromUfs(mShouldLoadFromUfs);
     return options;
   }
 
   public boolean isLoadFromUfs() {
-    return mLoadFromUfs;
+    return mShouldLoadFromUfs;
   }
 
-  public ListStatusOptions setLoadFromUfs(boolean mLoadFromUfs) {
-    this.mLoadFromUfs = mLoadFromUfs;
+  public ListStatusOptions setLoadFromUfs(boolean loadFromUfs) {
+    this.mShouldLoadFromUfs = loadFromUfs;
     return this;
   }
 }

@@ -24,8 +24,6 @@ import javax.annotation.concurrent.NotThreadSafe;
  */
 @NotThreadSafe
 public final class LoadMetadataOptions {
-  private static final boolean LOAD_METADATA_FROM_UFS_ENABLED =
-      Configuration.getBoolean(PropertyKey.MASTER_LOAD_METADATA_FROM_UFS_ENABLED);
   private boolean mCreateAncestors;
   private boolean mLoadDirectChildren;
   private UnderFileStatus mUnderFileStatus;
@@ -41,7 +39,8 @@ public final class LoadMetadataOptions {
   private LoadMetadataOptions() {
     mCreateAncestors = false;
     mLoadDirectChildren = false;
-    mShouldLoadFromUfs = LOAD_METADATA_FROM_UFS_ENABLED;
+    mShouldLoadFromUfs =
+        Configuration.getBoolean(PropertyKey.MASTER_LOAD_METADATA_FROM_UFS_ENABLED);;
     mUnderFileStatus = null;
   }
 

@@ -142,7 +142,7 @@ abstract class AbstractFileSystemProxy extends org.apache.hadoop.fs.FileSystem {
 			throws IOException {
 		if (mStatistics != null) {
 			mStatistics.incrementWriteOps(1);
-			mStatistics.incrementBytesWritten(bufferSize); //comment
+			mStatistics.incrementBytesWritten(bufferSize); 
 		}
 
 		if (MODE_CACHE_ENABLED) {
