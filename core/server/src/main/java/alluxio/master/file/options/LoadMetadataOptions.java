@@ -29,7 +29,7 @@ public final class LoadMetadataOptions {
   private boolean mCreateAncestors;
   private boolean mLoadDirectChildren;
   private UnderFileStatus mUnderFileStatus;
-  private boolean mLoadFromUfs;
+  private boolean mShouldLoadFromUfs;
 
   /**
    * @return the default {@link LoadMetadataOptions}
@@ -41,7 +41,7 @@ public final class LoadMetadataOptions {
   private LoadMetadataOptions() {
     mCreateAncestors = false;
     mLoadDirectChildren = false;
-    mLoadFromUfs = LOAD_METADATA_FROM_UFS_ENABLED;
+    mShouldLoadFromUfs = LOAD_METADATA_FROM_UFS_ENABLED;
     mUnderFileStatus = null;
   }
 
@@ -68,7 +68,7 @@ public final class LoadMetadataOptions {
     return mLoadDirectChildren;
   }
 
-  public boolean isLoadFromUfs() { return mLoadFromUfs; }
+  public boolean isLoadFromUfs() { return mShouldLoadFromUfs; }
   /**
    * Sets the recursive flag.
    *
@@ -104,8 +104,8 @@ public final class LoadMetadataOptions {
     return this;
   }
 
-  public LoadMetadataOptions setLoadFromUfs(boolean loadFromUfs){
-    mLoadFromUfs = loadFromUfs;
+  public LoadMetadataOptions setLoadFromUfs(boolean shouldLoadFromUfs){
+    mShouldLoadFromUfs = shouldLoadFromUfs;
     return this;
   }
 

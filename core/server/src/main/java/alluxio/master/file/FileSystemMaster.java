@@ -734,18 +734,8 @@ public final class FileSystemMaster extends AbstractMaster {
     }
   }
 
-  /**
-   * Added for load ufs path
-   * @param path
-   * @param isLoadFromUfs
-   * @return
-   * @throws FileDoesNotExistException
-   * @throws InvalidPathException
-   * @throws AccessControlException
-   */
-  public FileInfo getFileInfo(AlluxioURI path, boolean isLoadFromUfs)
+  public FileInfo getFileInfo(AlluxioURI path, boolean shouldLoadFromUfs) //shouldLoadFromUfs
     throws FileDoesNotExistException, InvalidPathException, AccessControlException {
-    Metrics.GET_FILE_INFO_OPS.inc();
     Metrics.GET_FILE_INFO_OPS.inc();
     long flushCounter = AsyncJournalWriter.INVALID_FLUSH_COUNTER;
 
@@ -762,7 +752,7 @@ public final class FileSystemMaster extends AbstractMaster {
       // This is WRITE locked, since loading metadata is possible.
       mPermissionChecker.checkPermission(Mode.Bits.READ, inodePath);
       flushCounter = loadMetadataIfNotExistAndJournal(inodePath,
-          LoadMetadataOptions.defaults().setCreateAncestors(true).setLoadFromUfs(isLoadFromUfs));
+          LoadMetadataOptions.defaults().setCreateAncestors(true).setLoadFromUfs(shouldLoadFromUfs));
       mInodeTree.ensureFullInodePath(inodePath, InodeTree.LockMode.READ);
       return getFileInfoInternal(inodePath);
     } finally {
@@ -2715,28 +2705,23 @@ public final class FileSystemMaster extends AbstractMaster {
    */
   public MountPairInfo getMountPointWithPath(AlluxioURI path)
       throws InvalidPathException,AccessControlException {
-    MountPairInfo mountPairInfo = new MountPairInfo();
+
     try (LockedInodePath inodePath = mInodeTree.lockInodePath(path, InodeTree.LockMode.READ)){
       mPermissionChecker.checkParentPermission(Mode.Bits.READ, inodePath);
       String mMountPoint = mMountTable.getMountPoint(path);
       MountInfo info = mMountTable.getMountTable().get(mMountPoint);
-      AlluxioURI ufsUri = info.getUfsUri();
-      mountPairInfo.setAlluxioPath(mMountPoint);
-      LOG.info("ufs path: {}", ufsUri.toString());
-      mountPairInfo.setUfsPath(ufsUri.toString());
+      MountPairInfo mountPairInfo = new MountPairInfo(mMountPoint,info.getUfsUri().toString());
+      return mountPairInfo;
     }
-    return mountPairInfo;
   }
 
   public List<MountPairInfo> getMountPoint() throws AlluxioException{
     List<MountPairInfo> result = new ArrayList<>();
     for(Map.Entry<String, MountInfo> entry: mMountTable.getMountTable().entrySet()){
       // System.out.println("Mount Table Info: "+ entry.getKey().toString()+ ", "+ entry.getValue().getUfsUri().toString());
-      MountPairInfo mountPairInfo = new MountPairInfo();
+      MountPairInfo mountPairInfo = new MountPairInfo(entry.getKey().toString(),entry.getValue().getUfsUri().toString());
       mountPairInfo.setAlluxioPath(entry.getKey().toString());
       mountPairInfo.setUfsPath(entry.getValue().getUfsUri().toString());
-      //System.out.println("Debug: I am here: alluxio path: "+mountPairInfo.getAlluxioPath()+" -> ufs path: "+
-      //  mountPairInfo.getUfsPath());
       result.add(mountPairInfo);
     }
     return result;

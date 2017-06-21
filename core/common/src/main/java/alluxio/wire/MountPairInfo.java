@@ -14,28 +14,33 @@ import java.io.Serializable;
 @NotThreadSafe
 public class MountPairInfo implements Serializable {
   public static final long serialVersionUID = 7119966306934831779L;
-  private String alluxioPath = "";
-  private String ufsPath = "";
+  private String mAlluxioPath =null;
+  private String mUfsPath = null;
 
-  public MountPairInfo(){}
+  private MountPairInfo(){}
 
   protected MountPairInfo(alluxio.thrift.MountPairInfo mountPairInfo){
-    alluxioPath = mountPairInfo.getAlluxioPath();
-    ufsPath = mountPairInfo.getUfsPath();
+    mAlluxioPath = mountPairInfo.getAlluxioPath();
+    mUfsPath = mountPairInfo.getUfsPath();
+  }
+
+  public MountPairInfo(String alluxioPath, String ufsPath){
+    mAlluxioPath = alluxioPath;
+    mUfsPath = ufsPath;
   }
 
   /**
    * @return the alluxio path
    */
   public String getAlluxioPath(){
-    return alluxioPath;
+    return mAlluxioPath;
   }
 
   /**
    * @return the ufs path
    */
   public String getUfsPath(){
-    return ufsPath;
+    return mUfsPath;
   }
 
   /**
@@ -43,7 +48,7 @@ public class MountPairInfo implements Serializable {
    * @return the MountPairInfo
    */
   public MountPairInfo setAlluxioPath(String path){
-    alluxioPath = path;
+    mAlluxioPath = path;
     return this;
   }
 
@@ -52,7 +57,7 @@ public class MountPairInfo implements Serializable {
    * @return the MountPairInfo
    */
   public MountPairInfo setUfsPath(String path){
-    ufsPath = path;
+    mUfsPath = path;
     return this;
   }
 
@@ -60,7 +65,7 @@ public class MountPairInfo implements Serializable {
    * @return thrift representation of the MountPairInfo
    */
   protected alluxio.thrift.MountPairInfo toThrift(){
-    alluxio.thrift.MountPairInfo info = new alluxio.thrift.MountPairInfo(alluxioPath,ufsPath);
+    alluxio.thrift.MountPairInfo info = new alluxio.thrift.MountPairInfo(mAlluxioPath, mUfsPath);
     return info;
   }
 
@@ -73,18 +78,18 @@ public class MountPairInfo implements Serializable {
       return false;
     }
     MountPairInfo that = (MountPairInfo) o;
-    return ufsPath.equals(that.ufsPath) && alluxioPath.equals(that.alluxioPath);
+    return mUfsPath.equals(that.mUfsPath) && mAlluxioPath.equals(that.mAlluxioPath);
   }
 
   @Override
   public int hashCode(){
-    return Objects.hashCode(alluxioPath,ufsPath);
+    return Objects.hashCode(mAlluxioPath, mUfsPath);
   }
 
   @Override
   public String toString(){
-    return Objects.toStringHelper(this).add("alluxioPath", alluxioPath)
-        .add("ufsPath", ufsPath).toString();
+    return Objects.toStringHelper(this).add("mAlluxioPath", mAlluxioPath)
+        .add("mUfsPath", mUfsPath).toString();
   }
 
 }
